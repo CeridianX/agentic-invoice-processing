@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Vendor {
+  id                        String           @id @default(cuid())
+  name                      String
+  category                  String
+  trustLevel                String
+  averageProcessingTime     Int
+  paymentTerms              String
+  taxId                     String?
+  preferredPaymentMethod    String
+  typicalVariancePattern    String?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  
+  invoices                  Invoice[]
+  purchaseOrders            PurchaseOrder[]
+}
+
+model Invoice {
+  id                   String               @id @default(cuid())
+  vendorId             String
+  invoiceNumber        String               @unique
+  invoiceDate          DateTime
+  amount               Float
+  status               String
+  approvalStatus       String               @default("pending")
+  assignedTo           String?
+  poId                 String?
+  receivedDate         DateTime
+  dueDate              DateTime
+  paymentTerms         String
+  hasIssues            Boolean              @default(false)
+  variancePercentage   Float?
+  currency             String               @default("USD")
+  notes                String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  
+  vendor               Vendor               @relation(fields: [vendorId], references: [id])
+  purchaseOrder        PurchaseOrder?       @relation(fields: [poId], references: [id])
+  lineItems            InvoiceLineItem[]
+  agentActivities      AgentActivity[]
+  exceptions           Exception[]
+}
+
+model PurchaseOrder {
+  id                String              @id @default(cuid())
+  poNumber          String              @unique
+  vendorId          String
+  totalAmount       Float
+  status            String
+  createdDate       DateTime
+  approvalDate      DateTime?
+  requester         String
+  department        String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  vendor            Vendor              @relation(fields: [vendorId], references: [id])
+  invoices          Invoice[]
+  lineItems         POLineItem[]
+  goodsReceipts     GoodsReceipt[]
+}
+
+model InvoiceLineItem {
+  id                    String              @id @default(cuid())
+  invoiceId             String
+  lineNumber            Int
+  itemCode              String?
+  description           String
+  quantity              Float
+  unitPrice             Float
+  totalAmount           Float
+  taxRate               Float
+  taxAmount             Float
+  glAccountCode         String?
+  department            String?
+  costCenter            String?
+  poLineItemId          String?
+  matchStatus           String              @default("unmatched")
+  varianceAmount        Float?
+  variancePercentage    Float?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  invoice               Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  poLineItem            POLineItem?         @relation(fields: [poLineItemId], references: [id])
+  matchingActivities    MatchingActivity[]
+  exceptions            Exception[]
+}
+
+model POLineItem {
+  id                    String                @id @default(cuid())
+  purchaseOrderId       String
+  lineNumber            Int
+  itemCode              String?
+  description           String
+  quantityOrdered       Float
+  quantityReceived      Float                @default(0)
+  quantityInvoiced      Float                @default(0)
+  unitPrice             Float
+  totalAmount           Float
+  glAccountCode         String?
+  department            String?
+  costCenter            String?
+  expectedDeliveryDate  DateTime?
+  budgetCategory        String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  
+  purchaseOrder         PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  invoiceLineItems      InvoiceLineItem[]
+  goodsReceiptLineItems GoodsReceiptLineItem[]
+  matchingActivities    MatchingActivity[]
+}
+
+model GoodsReceipt {
+  id                String                  @id @default(cuid())
+  poId              String
+  receiptDate       DateTime
+  receivedBy        String
+  status            String
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  
+  purchaseOrder     PurchaseOrder           @relation(fields: [poId], references: [id])
+  lineItems         GoodsReceiptLineItem[]
+}
+
+model GoodsReceiptLineItem {
+  id                String          @id @default(cuid())
+  goodsReceiptId    String
+  poLineItemId      String
+  quantityReceived  Float
+  condition         String
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  goodsReceipt      GoodsReceipt    @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  poLineItem        POLineItem      @relation(fields: [poLineItemId], references: [id])
+}
+
+model AgentActivity {
+  id                  String          @id @default(cuid())
+  timestamp           DateTime        @default(now())
+  activityType        String
+  description         String
+  invoiceId           String?
+  confidenceLevel     Float?
+  affectedLineItems   String?
+  createdAt           DateTime        @default(now())
+  
+  invoice             Invoice?        @relation(fields: [invoiceId], references: [id])
+}
+
+model Exception {
+  id                String            @id @default(cuid())
+  invoiceId         String
+  lineItemId        String?
+  type              String
+  severity          String
+  description       String
+  suggestedAction   String?
+  status            String            @default("open")
+  agentConfidence   Float?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  invoice           Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  lineItem          InvoiceLineItem?  @relation(fields: [lineItemId], references: [id])
+}
+
+model MatchingActivity {
+  id                    String              @id @default(cuid())
+  invoiceLineItemId     String
+  poLineItemId          String
+  matchType             String
+  confidenceScore       Float
+  matchedBy             String
+  matchedAt             DateTime            @default(now())
+  matchNotes            String?
+  createdAt             DateTime            @default(now())
+  
+  invoiceLineItem       InvoiceLineItem     @relation(fields: [invoiceLineItemId], references: [id], onDelete: Cascade)
+  poLineItem            POLineItem          @relation(fields: [poLineItemId], references: [id])
+}

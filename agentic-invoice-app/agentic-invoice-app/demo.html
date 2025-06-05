@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xelix Agentic Invoice Processing - Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: white; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; margin-bottom: 20px; border-radius: 8px; }
+        .agent-bar { display: flex; align-items: center; justify-content: space-between; }
+        .agent-status { display: flex; align-items: center; gap: 8px; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .suggestion-banner { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .table-container { overflow-x: auto; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        .table th { background: #f9fafb; font-weight: 600; color: #6b7280; }
+        .table tr:hover { background: #f9fafb; cursor: pointer; }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .space-x-2 > * + * { margin-left: 8px; }
+        .text-sm { font-size: 14px; }
+        .font-medium { font-weight: 500; }
+        .text-gray-600 { color: #6b7280; }
+        .text-blue-600 { color: #2563eb; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 500; }
+        .btn-primary { background: #2563eb; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Agent Status Bar -->
+        <div class="header">
+            <div class="agent-bar">
+                <div class="agent-status">
+                    <span class="pulse" style="font-size: 20px;">🤖</span>
+                    <span class="font-medium">AI Agent</span>
+                    <span class="badge badge-success">active</span>
+                </div>
+                <div class="text-sm text-gray-600" id="agentActivity">Monitoring invoice queue...</div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-600">Queue: 30</span>
+                    <span style="font-size: 16px;">🔔</span>
+                </div>
+            </div>
+        </div>
+
+        <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 8px;">Xelix Agentic Invoice Processing</h1>
+        <p style="color: #6b7280; margin-bottom: 24px;">AI-powered accounts payable with intelligent line-item matching</p>
+
+        <!-- Agent Suggestions -->
+        <div class="suggestion-banner">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-2" style="margin-bottom: 8px;">
+                        <span>✨</span>
+                        <h3 class="font-medium">Agent Recommendations</h3>
+                        <span class="badge" style="background: #ecfdf5; color: #065f46;">95% confident</span>
+                    </div>
+                    <p class="text-sm text-gray-600">12 invoices match auto-approval criteria • $45,230 in early payment discounts available</p>
+                </div>
+                <button class="btn btn-primary">Approve All</button>
+            </div>
+        </div>
+
+        <!-- Invoice List -->
+        <div class="card">
+            <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
+                <h2 class="font-medium">Invoices (30)</h2>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Vendor</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Due Date</th>
+                            <th>AI Insights</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoiceTable">
+                        <tr onclick="showInvoiceDetail('INV-2024-1005')">
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span>📄</span>
+                                    <span class="font-medium">INV-2024-1005</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="font-medium">TechCorp Solutions</div>
+                                    <div class="text-sm text-gray-600">IT Hardware</div>
+                                </div>
+                            </td>
+                            <td class="font-medium">$9,719.78</td>
+                            <td>
+                                <span class="badge" style="background: #dbeafe; color: #1e40af;">
+                                    pending approval
+                                </span>
+                            </td>
+                            <td class="text-sm">7/5/2025</td>
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span class="badge badge-success">✅ Good</span>
+                                    <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px;">98%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="showInvoiceDetail('INV-2024-1011')">
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span>📄</span>
+                                    <span class="font-medium">INV-2024-1011</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="font-medium">Office Supplies Plus</div>
+                                    <div class="text-sm text-gray-600">Office Supplies</div>
+                                </div>
+                            </td>
+                            <td class="font-medium">$1,393.04</td>
+                            <td>
+                                <span class="badge" style="background: #dbeafe; color: #1e40af;">
+                                    pending approval
+                                </span>
+                            </td>
+                            <td class="text-sm">6/28/2025</td>
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span class="badge badge-success">✅ Good</span>
+                                    <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px;">95%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="showInvoiceDetail('INV-2024-1018')">
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span>📄</span>
+                                    <span class="font-medium">INV-2024-1018</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="font-medium">Global Marketing Agency</div>
+                                    <div class="text-sm text-gray-600">Marketing Services</div>
+                                </div>
+                            </td>
+                            <td class="font-medium">$8,066.60</td>
+                            <td>
+                                <span class="badge" style="background: #fef3c7; color: #92400e;">
+                                    pending review
+                                </span>
+                            </td>
+                            <td class="text-sm">6/27/2025</td>
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span class="badge badge-warning">⚠️ Issues</span>
+                                    <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px;">72%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="showInvoiceDetail('INV-2024-1023')">
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span>📄</span>
+                                    <span class="font-medium">INV-2024-1023</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="font-medium">Facilities Management Co</div>
+                                    <div class="text-sm text-gray-600">Facilities</div>
+                                </div>
+                            </td>
+                            <td class="font-medium">$15,605.56</td>
+                            <td>
+                                <span class="badge" style="background: #dcfce7; color: #166534;">
+                                    approved
+                                </span>
+                            </td>
+                            <td class="text-sm">6/24/2025</td>
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span class="badge badge-success">✅ Good</span>
+                                    <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px;">99%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="showInvoiceDetail('INV-2024-1026')">
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span>📄</span>
+                                    <span class="font-medium">INV-2024-1026</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="font-medium">Cloud Services Inc</div>
+                                    <div class="text-sm text-gray-600">IT Services</div>
+                                </div>
+                            </td>
+                            <td class="font-medium">$138,240.00</td>
+                            <td>
+                                <span class="badge" style="background: #dbeafe; color: #1e40af;">
+                                    pending approval
+                                </span>
+                            </td>
+                            <td class="text-sm">7/3/2025</td>
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span class="badge badge-success">✅ Good</span>
+                                    <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px;">97%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="showInvoiceDetail('INV-2024-1015')">
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span>📄</span>
+                                    <span class="font-medium">INV-2024-1015</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="font-medium">TechCorp Solutions</div>
+                                    <div class="text-sm text-gray-600">IT Hardware</div>
+                                </div>
+                            </td>
+                            <td class="font-medium">$479.04</td>
+                            <td>
+                                <span class="badge" style="background: #fef3c7; color: #92400e;">
+                                    pending review
+                                </span>
+                            </td>
+                            <td class="text-sm">5/22/2025</td>
+                            <td>
+                                <div class="flex items-center space-x-2">
+                                    <span class="badge badge-warning">⚠️ Issues</span>
+                                    <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px;">68%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample invoice data
+        const sampleInvoices = [
+            { id: 1, number: 'INV-2024-1005', vendor: 'TechCorp Solutions', category: 'IT Hardware', amount: 9719.78, status: 'pending_approval', dueDate: '2025-07-05', hasIssues: false, confidence: 98 },
+            { id: 2, number: 'INV-2024-1011', vendor: 'Office Supplies Plus', category: 'Office Supplies', amount: 1393.04, status: 'pending_approval', dueDate: '2025-06-28', hasIssues: false, confidence: 95 },
+            { id: 3, number: 'INV-2024-1018', vendor: 'Global Marketing Agency', category: 'Marketing Services', amount: 8066.60, status: 'pending_review', dueDate: '2025-06-27', hasIssues: true, confidence: 72 },
+            { id: 4, number: 'INV-2024-1023', vendor: 'Facilities Management Co', category: 'Facilities', amount: 15605.56, status: 'approved', dueDate: '2025-06-24', hasIssues: false, confidence: 99 },
+            { id: 5, number: 'INV-2024-1026', vendor: 'Cloud Services Inc', category: 'IT Services', amount: 138240.00, status: 'pending_approval', dueDate: '2025-07-03', hasIssues: false, confidence: 97 },
+            { id: 6, number: 'INV-2024-1015', vendor: 'TechCorp Solutions', category: 'IT Hardware', amount: 479.04, status: 'pending_review', dueDate: '2025-05-22', hasIssues: true, confidence: 68 },
+            { id: 7, number: 'INV-2024-1008', vendor: 'Office Supplies Plus', category: 'Office Supplies', amount: 79.82, status: 'pending_approval', dueDate: '2025-06-05', hasIssues: false, confidence: 96 },
+            { id: 8, number: 'INV-2024-1019', vendor: 'Global Marketing Agency', category: 'Marketing Services', amount: 44704.59, status: 'pending_review', dueDate: '2025-06-30', hasIssues: true, confidence: 74 }
+        ];
+
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+        }
+
+        // Get status color
+        function getStatusColor(status) {
+            switch (status) {
+                case 'approved': return { bg: '#dcfce7', color: '#166534' };
+                case 'pending_review': return { bg: '#fef3c7', color: '#92400e' };
+                case 'pending_approval': return { bg: '#dbeafe', color: '#1e40af' };
+                default: return { bg: '#f3f4f6', color: '#374151' };
+            }
+        }
+
+        // Populate invoice table
+        function populateInvoices() {
+            const tbody = document.getElementById('invoiceTable');
+            tbody.innerHTML = sampleInvoices.map(invoice => {
+                const statusColor = getStatusColor(invoice.status);
+                return `
+                    <tr onclick="showInvoiceDetail('${invoice.number}')">
+                        <td>
+                            <div class="flex items-center space-x-2">
+                                <span>📄</span>
+                                <span class="font-medium">${invoice.number}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <div class="font-medium">${invoice.vendor}</div>
+                                <div class="text-sm text-gray-600">${invoice.category}</div>
+                            </div>
+                        </td>
+                        <td class="font-medium">${formatCurrency(invoice.amount)}</td>
+                        <td>
+                            <span class="badge" style="background: ${statusColor.bg}; color: ${statusColor.color};">
+                                ${invoice.status.replace(/_/g, ' ')}
+                            </span>
+                        </td>
+                        <td class="text-sm">${new Date(invoice.dueDate).toLocaleDateString()}</td>
+                        <td>
+                            <div class="flex items-center space-x-2">
+                                ${invoice.hasIssues 
+                                    ? '<span class="badge badge-warning">⚠️ Issues</span>' 
+                                    : '<span class="badge badge-success">✅ Good</span>'}
+                                <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px;">
+                                    ${invoice.confidence}%
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Show invoice detail
+        function showInvoiceDetail(invoiceNumber) {
+            alert(`Opening detailed view for ${invoiceNumber}\n\nFeatures would include:\n• Line-item matching interface\n• AI-powered suggestions\n• Variance analysis\n• Exception handling\n• 3-way matching visualization`);
+        }
+
+        // Simulate agent activity
+        function simulateAgentActivity() {
+            const activities = [
+                'Processing invoice queue...',
+                'Analyzing vendor patterns...',
+                'Matching line items to POs...',
+                'Detecting price variances...',
+                'Learning from user feedback...',
+                'Optimizing approval workflows...',
+                'Scanning for duplicates...',
+                'Updating confidence scores...'
+            ];
+            
+            setInterval(() => {
+                const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+                document.getElementById('agentActivity').textContent = randomActivity;
+            }, 3000);
+        }
+
+        // Initialize the demo
+        document.addEventListener('DOMContentLoaded', function() {
+            populateInvoices();
+            simulateAgentActivity();
+        });
+
+        // Also run immediately in case DOMContentLoaded already fired
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                populateInvoices();
+                simulateAgentActivity();
+            });
+        } else {
+            populateInvoices();
+            simulateAgentActivity();
+        }
+    </script>
+</body>
+</html>

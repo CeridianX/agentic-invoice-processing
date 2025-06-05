@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Sparkles } from 'lucide-react';
 
 // Define types directly in the component
 interface Vendor {
@@ -208,24 +209,74 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
 
       {/* Agent Recommendations Card */}
       {showAgentCard && (
-        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 animate-fadeIn">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+        <div 
+          className="mb-4 relative overflow-hidden animate-fadeIn"
+          style={{
+            background: '#FFFFFF',
+            backgroundImage: 'linear-gradient(135deg, #F3E8FF 0%, #FFFFFF 50%)',
+            border: '1px solid #E9D5FF',
+            borderRadius: '16px',
+            padding: '16px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)'
+          }}
+        >
+          {/* Purple glow orb */}
+          <div 
+            className="absolute pointer-events-none"
+            style={{
+              top: '-50%',
+              right: '-10%',
+              width: '300px',
+              height: '300px',
+              background: 'radial-gradient(circle, rgba(147, 51, 234, 0.15) 0%, transparent 70%)',
+              filter: 'blur(60px)',
+              opacity: 0.5
+            }}
+          />
+          
+          {/* Content */}
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center space-x-4">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                <div 
+                  className="flex items-center justify-center"
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    background: 'linear-gradient(135deg, #9333EA 0%, #A855F7 100%)',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(147, 51, 234, 0.3)'
+                  }}
+                >
+                  <Sparkles size={24} color="white" />
                 </div>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-gray-900">Agent Recommendations</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Agent Recommendations</h3>
                 <p className="text-sm text-gray-600">
                   {invoices.filter(i => !i.hasIssues).length} invoices match auto-approval criteria • 95% confidence
                 </p>
               </div>
             </div>
-            <button className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button 
+              className="text-white font-semibold transition-all duration-200 hover:-translate-y-0.5"
+              style={{
+                background: '#3B82F6',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 8px 20px rgba(59, 130, 246, 0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.15)';
+              }}
+            >
               Approve All
             </button>
           </div>

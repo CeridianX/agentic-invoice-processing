@@ -23,18 +23,16 @@ export default function AgentStatusBar() {
   }, []);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center space-x-8">
             <img src="/xelix_logo.svg" alt="Xelix" className="h-8" />
             
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-gray-700">{agentStatus}</span>
-              </div>
-              <span className="text-sm text-gray-500 ml-4">{activity}</span>
+            <div className="flex items-center bg-gray-50 rounded-full px-4 py-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+              <span className="text-sm font-medium text-gray-700 mr-2">{agentStatus}</span>
+              <span className="text-sm text-gray-500">• {activity}</span>
             </div>
           </div>
           

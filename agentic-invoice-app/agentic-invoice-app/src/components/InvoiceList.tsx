@@ -75,10 +75,10 @@ const invoiceService = {
 
 export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [showAgentCard, setShowAgentCard] = useState(true);
+  const [showAgentCard, setShowAgentCard] = useState(false);
   const [showPatternCard, setShowPatternCard] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [pipelineExpanded, setPipelineExpanded] = useState(true);
+  const [pipelineExpanded, setPipelineExpanded] = useState(false);
 
   useEffect(() => {
     loadInvoices();
@@ -286,7 +286,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
 
       {/* AI Processing Pipeline */}
       <div 
-        className="mb-6 relative overflow-hidden transition-all duration-500 ease-in-out"
+        className="mb-6 relative overflow-hidden transition-all duration-500 ease-in-out cursor-pointer"
+        onClick={() => setPipelineExpanded(!pipelineExpanded)}
         style={{
           background: 'linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%)',
           borderRadius: '16px',
@@ -354,16 +355,15 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               <div className="text-lg font-semibold text-gray-900">${(invoices.reduce((sum, inv) => sum + inv.amount, 0) / 1000).toFixed(0)}K</div>
               <div className="text-xs text-gray-400">Pipeline value</div>
             </div>
-            <button
-              onClick={() => setPipelineExpanded(!pipelineExpanded)}
-              className="ml-4 p-2 hover:bg-gray-100 rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700"
+            <div
+              className="ml-4 p-2 rounded-lg transition-all duration-200 text-gray-500"
               style={{
                 transform: pipelineExpanded ? 'rotate(0deg)' : 'rotate(-180deg)',
                 transition: 'transform 0.3s ease'
               }}
             >
               <ChevronDown size={16} />
-            </button>
+            </div>
           </div>
         </div>
         
@@ -623,16 +623,18 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
         </div>
         
         {/* Flow Animation Keyframes */}
-        <style jsx>{`
-          @keyframes flowAnimation {
-            0% { left: -100%; }
-            100% { left: 100%; }
-          }
-          @keyframes alertBounce {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-          }
-        `}</style>
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes flowAnimation {
+              0% { left: -100%; }
+              100% { left: 100%; }
+            }
+            @keyframes alertBounce {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.1); }
+            }
+          `
+        }} />
       </div>
 
       {/* Invoice Table Card */}

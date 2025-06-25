@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agent Zero API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>Agent Zero API Test</h1>
+    
+    <div class="test">
+        <h3>1. Health Check</h3>
+        <button onclick="testHealth()">Test Health</button>
+        <div id="health-result"></div>
+    </div>
+
+    <div class="test">
+        <h3>2. Agent Zero Status</h3>
+        <button onclick="testAgentStatus()">Test Agent Status</button>
+        <div id="agent-result"></div>
+    </div>
+
+    <div class="test">
+        <h3>3. Business Rules</h3>
+        <button onclick="testBusinessRules()">Get Business Rules</button>
+        <div id="rules-result"></div>
+    </div>
+
+    <div class="test">
+        <h3>4. Add Natural Language Rule</h3>
+        <input type="text" id="rule-input" placeholder="If invoice amount exceeds $1000, require manager approval" style="width: 400px;">
+        <button onclick="addRule()">Add Rule</button>
+        <div id="add-rule-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                document.getElementById('health-result').innerHTML = 
+                    `<pre class="success">${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('health-result').innerHTML = 
+                    `<pre class="error">Error: ${error.message}</pre>`;
+            }
+        }
+
+        async function testAgentStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/agents/agent-zero/status`);
+                const data = await response.json();
+                document.getElementById('agent-result').innerHTML = 
+                    `<pre class="success">${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('agent-result').innerHTML = 
+                    `<pre class="error">Error: ${error.message}</pre>`;
+            }
+        }
+
+        async function testBusinessRules() {
+            try {
+                const response = await fetch(`${API_BASE}/api/business-rules`);
+                const data = await response.json();
+                document.getElementById('rules-result').innerHTML = 
+                    `<pre class="success">${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('rules-result').innerHTML = 
+                    `<pre class="error">Error: ${error.message}</pre>`;
+            }
+        }
+
+        async function addRule() {
+            const ruleText = document.getElementById('rule-input').value;
+            if (!ruleText) {
+                alert('Please enter a rule');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/business-rules`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        naturalLanguageRule: ruleText,
+                        name: 'User Created Rule'
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('add-rule-result').innerHTML = 
+                    `<pre class="success">${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('add-rule-result').innerHTML = 
+                    `<pre class="error">Error: ${error.message}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -10,6 +10,11 @@ import vendorRoutes from './routes/vendors';
 import purchaseOrderRoutes from './routes/purchaseOrders';
 import agentRoutes from './routes/agents';
 import dashboardRoutes from './routes/dashboard';
+import businessRulesRoutes from './routes/businessRules';
+import demoRoutes from './routes/demo';
+
+// Import Agent Zero
+import { AgentZeroService } from './agent-zero/AgentZeroService';
 
 dotenv.config();
 
@@ -18,8 +23,35 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 const prisma = new PrismaClient();
 
+// Initialize Agent Zero
+let agentZero: AgentZeroService;
+let agentInterval: NodeJS.Timeout;
+
+// Delay Agent Zero initialization to avoid blocking server startup
+setTimeout(async () => {
+  try {
+    agentZero = new AgentZeroService();
+    await agentZero.initialize(); // Properly initialize the service
+    (global as any).agentZeroInstance = agentZero;
+    setupAgentZeroListeners(); // Setup WebSocket listeners
+    console.log('Agent Zero instance created, initialized, and listeners setup');
+  } catch (error) {
+    console.error('Failed to create Agent Zero instance:', error);
+  }
+}, 1000);
+
 app.use(cors());
 app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date(),
+    agentZero: agentZero ? 'initializing' : 'not started'
+  });
+});
+
 
 // Routes
 app.use('/api/invoices', invoiceRoutes);
@@ -27,106 +59,240 @@ app.use('/api/vendors', vendorRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/business-rules', businessRulesRoutes);
+app.use('/api/demo', demoRoutes);
 
-// WebSocket connection for real-time agent updates
-wss.on('connection', (ws) => {
+// WebSocket connection for real-time Agent Zero updates
+wss.on('connection', async (ws) => {
   console.log('Client connected');
 
-  // Send initial agent status
-  ws.send(JSON.stringify({
-    type: 'agent_status',
-    data: {
-      status: 'active',
-      currentActivity: 'Monitoring invoice queue',
-      processingCount: 0
+  // Send initial Agent Zero status if available
+  if (agentZero) {
+    try {
+      const agentStatus = await agentZero.getAgentStatus();
+      ws.send(JSON.stringify({
+        type: 'agent_zero_status',
+        data: agentStatus
+      }));
+    } catch (error) {
+      console.error('Error getting agent status:', error);
     }
-  }));
+  }
 
   ws.on('close', () => {
     console.log('Client disconnected');
   });
 });
 
-// Start agent simulation
-let agentInterval: NodeJS.Timeout;
+// Setup Agent Zero event listeners when ready
+function setupAgentZeroListeners() {
+  if (!agentZero) return;
+  
+  agentZero.on('processing_started', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_processing_started',
+      data
+    });
+  });
 
-async function simulateAgentActivity() {
+  agentZero.on('plan_created', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_plan_created',
+      data
+    });
+  });
+
+  agentZero.on('step_started', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_step_started',
+      data
+    });
+  });
+
+  agentZero.on('step_completed', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_step_completed',
+      data
+    });
+  });
+
+  agentZero.on('processing_completed', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_processing_completed',
+      data
+    });
+  });
+
+  agentZero.on('processing_error', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_processing_error',
+      data
+    });
+  });
+
+  // Add invoice-specific events
+  agentZero.on('invoice_created', (data) => {
+    broadcastToClients({
+      type: 'invoice_created',
+      data
+    });
+  });
+
+  agentZero.on('invoice_updated', (data) => {
+    broadcastToClients({
+      type: 'invoice_updated',
+      data
+    });
+  });
+
+  agentZero.on('invoice_processing_started', (data) => {
+    broadcastToClients({
+      type: 'invoice_processing_started',
+      data
+    });
+  });
+
+  agentZero.on('invoice_processing_completed', (data) => {
+    broadcastToClients({
+      type: 'invoice_processing_completed',
+      data
+    });
+  });
+}
+
+function broadcastToClients(message: any) {
   const clients = Array.from(wss.clients);
-  if (clients.length === 0) return;
+  clients.forEach((client) => {
+    if (client.readyState === 1) { // WebSocket.OPEN
+      client.send(JSON.stringify(message));
+    }
+  });
+}
 
+// Agent Zero intelligent processing
+async function processInvoicesWithAgentZero() {
   try {
-    // Get a random pending invoice
+    // Get pending invoices that need Agent Zero processing
     const pendingInvoices = await prisma.invoice.findMany({
-      where: { status: 'pending' },
-      take: 5
+      where: { 
+        status: 'pending',
+        // Only process invoices that haven't been processed by Agent Zero yet
+        agentActivities: {
+          none: {
+            activityType: 'processing_completed'
+          }
+        }
+      },
+      include: {
+        vendor: true,
+        purchaseOrder: true
+      },
+      take: 3 // Process in smaller batches for demo
     });
 
     if (pendingInvoices.length > 0) {
-      const invoice = pendingInvoices[Math.floor(Math.random() * pendingInvoices.length)];
+      console.log(`Agent Zero: Processing ${pendingInvoices.length} pending invoices`);
       
-      // Create agent activity
-      const activity = await prisma.agentActivity.create({
-        data: {
-          activityType: 'processing',
-          description: `Processing invoice ${invoice.invoiceNumber}`,
-          invoiceId: invoice.id,
-          confidenceLevel: 0.85 + Math.random() * 0.15
+      // Process each invoice with Agent Zero
+      for (const invoice of pendingInvoices) {
+        try {
+          console.log(`Agent Zero: Starting processing for invoice ${invoice.invoiceNumber}`);
+          
+          // Let Agent Zero intelligently process the invoice
+          const result = await agentZero.processInvoice(invoice.id);
+          
+          console.log(`Agent Zero: Completed processing for invoice ${invoice.invoiceNumber}`, result);
+
+          // Broadcast completion
+          broadcastToClients({
+            type: 'invoice_processed_by_agent_zero',
+            data: { 
+              invoiceId: invoice.id,
+              result: {
+                isValid: result.validationResult?.isValid || result.success || false,
+                confidence: result.confidence || 0.8,
+                approvalRequired: result.workflowResult?.approvalRequired || false,
+                priority: result.workflowResult?.priority || 'normal',
+                reasoning: result.reasoning || 'Processing completed'
+              }
+            }
+          });
+
+        } catch (processingError) {
+          console.error(`Agent Zero: Failed to process invoice ${invoice.id}:`, processingError);
+          
+          // Broadcast error
+          broadcastToClients({
+            type: 'agent_zero_processing_error',
+            data: { 
+              invoiceId: invoice.id,
+              error: processingError.message
+            }
+          });
         }
-      });
 
-      // Broadcast to all connected clients
-      const message = JSON.stringify({
-        type: 'agent_activity',
-        data: {
-          activity,
-          processingCount: pendingInvoices.length
-        }
-      });
-
-      clients.forEach((client) => {
-        if (client.readyState === 1) { // WebSocket.OPEN
-          client.send(message);
-        }
-      });
-
-      // Sometimes update invoice status
-      if (Math.random() > 0.7) {
-        await prisma.invoice.update({
-          where: { id: invoice.id },
-          data: { status: 'processed' }
-        });
-
-        // Send status update
-        const statusMessage = JSON.stringify({
-          type: 'invoice_processed',
-          data: { invoiceId: invoice.id }
-        });
-
-        clients.forEach((client) => {
-          if (client.readyState === 1) {
-            client.send(statusMessage);
-          }
-        });
+        // Add delay between invoices to make the process visible
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
   } catch (error) {
-    console.error('Agent simulation error:', error);
+    console.error('Agent Zero processing cycle error:', error);
   }
 }
 
-// Start agent simulation when server starts
-server.listen(process.env.PORT || 3001, () => {
-  console.log(`Server running on port ${process.env.PORT || 3001}`);
+// Error handling middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error', message: err.message });
+});
+
+// Start server
+const PORT = parseInt(process.env.PORT || '3001', 10);
+const HOST = '0.0.0.0';
+
+server.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
+  console.log(`API endpoints available at http://localhost:${PORT}/api`);
   
-  // Start agent simulation every 3-5 seconds
-  agentInterval = setInterval(() => {
-    simulateAgentActivity();
-  }, 3000 + Math.random() * 2000);
+  // Initialize Agent Zero after server starts
+  setTimeout(async () => {
+    try {
+      if (agentZero) {
+        setupAgentZeroListeners();
+        await agentZero.initialize();
+        console.log('Agent Zero initialized successfully');
+        
+        // Start Agent Zero processing cycle every 10 seconds
+        agentInterval = setInterval(() => {
+          if (agentZero) {
+            processInvoicesWithAgentZero().catch(err => {
+              console.error('Agent Zero processing error:', err);
+            });
+          }
+        }, 10000);
+        
+        console.log('Agent Zero processing cycle started');
+      }
+    } catch (error) {
+      console.error('Failed to initialize Agent Zero:', error);
+      console.log('Server will continue without Agent Zero features');
+    }
+  }, 2000);
 });
 
 // Cleanup on server shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
+  console.log('Shutting down server...');
   clearInterval(agentInterval);
+  
+  try {
+    await agentZero.shutdown();
+    console.log('Agent Zero shutdown complete');
+  } catch (error) {
+    console.error('Error shutting down Agent Zero:', error);
+  }
+  
   server.close();
-  prisma.$disconnect();
+  await prisma.$disconnect();
+  console.log('Server shutdown complete');
 });

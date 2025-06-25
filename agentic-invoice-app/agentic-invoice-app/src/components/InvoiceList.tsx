@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Sparkles, Zap, ChevronRight, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Sparkles, Zap, ChevronRight, ChevronDown, Brain, Activity, CheckCircle, AlertCircle } from 'lucide-react';
 
 // Define types directly in the component
 interface Vendor {
@@ -46,6 +46,17 @@ interface Invoice {
   variancePercentage?: number;
   currency: string;
   notes?: string;
+  
+  // Agent Zero specific fields
+  agentProcessingStarted?: string;
+  agentProcessingCompleted?: string;
+  agentConfidence?: number;
+  agentReasoning?: string;
+  workflowRoute?: string;
+  learningImpact?: string;
+  processingTimeMs?: number;
+  scenario?: string;
+  
   vendor: Vendor;
   purchaseOrder?: { poNumber: string };
   exceptions?: Exception[];
@@ -54,6 +65,42 @@ interface Invoice {
 
 interface InvoiceListProps {
   onSelectInvoice: (invoice: Invoice) => void;
+}
+
+// Agent Zero types
+interface AgentZeroStatus {
+  status: string;
+  initialized: boolean;
+  activeAgents: number;
+  activePlans: number;
+  agentStatuses: Record<string, any>;
+}
+
+interface AgentZeroStep {
+  id: string;
+  agentName: string;
+  action: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  confidence?: number;
+}
+
+interface AgentZeroActivity {
+  type: string;
+  data: any;
+  timestamp: Date;
+}
+
+interface CurrentProcessing {
+  invoiceId: string;
+  status: string;
+  timestamp: Date;
+  scenario?: string;
+  currentStep?: AgentZeroStep;
+  lastCompletedStep?: string;
+  batchInfo?: {
+    index: number;
+    total: number;
+  };
 }
 
 // API service
@@ -80,9 +127,198 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
   const [loading, setLoading] = useState(true);
   const [pipelineExpanded, setPipelineExpanded] = useState(false);
 
+  // Agent Zero state
+  const [agentZeroStatus, setAgentZeroStatus] = useState<AgentZeroStatus | null>(null);
+  const [agentZeroActivity, setAgentZeroActivity] = useState<AgentZeroActivity[]>([]);
+  const [currentProcessing, setCurrentProcessing] = useState<CurrentProcessing | null>(null);
+  const [agentZeroExpanded, setAgentZeroExpanded] = useState(true);
+  const [agentStatuses, setAgentStatuses] = useState<Record<string, any>>({
+    'CoordinatorAgent': { status: 'idle', currentTask: 'Waiting for invoices', confidence: 0.95 },
+    'DocumentProcessorAgent': { status: 'idle', currentTask: 'Ready for extraction', confidence: 0.90 },
+    'ValidationAgent': { status: 'idle', currentTask: 'Standing by', confidence: 0.93 },
+    'WorkflowAgent': { status: 'idle', currentTask: 'Ready to route', confidence: 0.88 }
+  });
+  const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+
   useEffect(() => {
     loadInvoices();
+    setupWebSocket();
+    fetchAgentZeroStatus();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   }, []);
+
+  const setupWebSocket = () => {
+    try {
+      wsRef.current = new WebSocket('ws://localhost:3001');
+
+      wsRef.current.onopen = () => {
+        console.log('Connected to Agent Zero WebSocket');
+      };
+
+      wsRef.current.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleAgentZeroMessage(message);
+      };
+
+      wsRef.current.onclose = () => {
+        console.log('Agent Zero WebSocket disconnected');
+        // Attempt to reconnect after 5 seconds
+        setTimeout(setupWebSocket, 5000);
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('Agent Zero WebSocket error:', error);
+      };
+    } catch (error) {
+      console.error('Failed to setup WebSocket:', error);
+    }
+  };
+
+  const handleAgentZeroMessage = (message: any) => {
+    const activity: AgentZeroActivity = {
+      type: message.type,
+      data: message.data,
+      timestamp: new Date()
+    };
+
+    setAgentZeroActivity(prev => [activity, ...prev.slice(0, 19)]); // Keep last 20 activities
+
+    switch (message.type) {
+      case 'agent_zero_status':
+        setAgentZeroStatus(message.data);
+        break;
+      case 'agent_zero_processing_started':
+        setCurrentProcessing({
+          invoiceId: message.data.invoiceId,
+          status: 'started',
+          timestamp: new Date()
+        });
+        break;
+      case 'agent_zero_step_started':
+        setCurrentProcessing(prev => prev ? {
+          ...prev,
+          currentStep: message.data.step,
+          status: 'processing'
+        } : null);
+        break;
+      case 'agent_zero_step_completed':
+        setCurrentProcessing(prev => prev ? {
+          ...prev,
+          lastCompletedStep: message.data.stepId,
+          status: 'processing'
+        } : null);
+        break;
+      case 'agent_zero_processing_completed':
+        setCurrentProcessing(null);
+        // Reload invoices to show updated status
+        loadInvoices();
+        break;
+      case 'invoice_created':
+        // Add new invoice(s) to the list
+        if (message.data.invoices) {
+          // Batch creation
+          setInvoices(prev => [...message.data.invoices, ...prev]);
+        } else if (message.data.invoice) {
+          // Single invoice creation
+          setInvoices(prev => [message.data.invoice, ...prev]);
+        }
+        break;
+      case 'invoice_processing_started':
+        console.log('🎯 INVOICE_PROCESSING_STARTED EVENT:', message.data);
+        console.log('📊 Scenario received:', message.data.scenario);
+        
+        // Update invoice status to show it's being processed
+        setInvoices(prev => prev.map(inv => 
+          inv.id === message.data.invoiceId 
+            ? { ...inv, agentProcessingStarted: message.data.timestamp }
+            : inv
+        ));
+        setCurrentProcessing({
+          invoiceId: message.data.invoiceId,
+          status: 'processing',
+          timestamp: new Date(),
+          scenario: message.data.scenario,
+          batchInfo: message.data.batchIndex ? {
+            index: message.data.batchIndex,
+            total: message.data.batchTotal
+          } : undefined
+        });
+        
+        // Start the agent activity simulation
+        console.log('🚀 About to call simulateAgentActivity with:', message.data.invoiceId, message.data.scenario);
+        simulateAgentActivity(message.data.invoiceId, message.data.scenario);
+        break;
+      case 'invoice_processing_completed':
+        // Update invoice with processing results
+        setInvoices(prev => prev.map(inv => 
+          inv.id === message.data.invoiceId 
+            ? { 
+                ...inv, 
+                agentProcessingCompleted: message.data.timestamp,
+                agentConfidence: message.data.result?.confidence,
+                agentReasoning: message.data.result?.reasoning,
+                workflowRoute: message.data.result?.workflowRoute,
+                processingTimeMs: message.data.result?.processingTimeMs
+              }
+            : inv
+        ));
+        // Clear current processing if it matches
+        setCurrentProcessing(prev => 
+          prev?.invoiceId === message.data.invoiceId ? null : prev
+        );
+        
+        // Reset agents to completed state briefly, then back to idle
+        console.log('🏁 PROCESSING COMPLETED - Setting agents to completed state');
+        setTimeout(() => {
+          const completedStatuses = {
+            'CoordinatorAgent': { status: 'idle', currentTask: 'Completed', confidence: 0.95 },
+            'DocumentProcessorAgent': { status: 'idle', currentTask: 'Completed', confidence: 0.90 },
+            'ValidationAgent': { status: 'idle', currentTask: 'Completed', confidence: 0.93 },
+            'WorkflowAgent': { status: 'idle', currentTask: 'Completed', confidence: 0.88 }
+          };
+          console.log('✅ Setting completion statuses:', completedStatuses);
+          setAgentStatuses(completedStatuses);
+        }, 500);
+        
+        setTimeout(() => {
+          const idleStatuses = {
+            'CoordinatorAgent': { status: 'idle', currentTask: 'Waiting for invoices', confidence: 0.95 },
+            'DocumentProcessorAgent': { status: 'idle', currentTask: 'Ready for extraction', confidence: 0.90 },
+            'ValidationAgent': { status: 'idle', currentTask: 'Standing by', confidence: 0.93 },
+            'WorkflowAgent': { status: 'idle', currentTask: 'Ready to route', confidence: 0.88 }
+          };
+          console.log('💤 Setting back to idle statuses:', idleStatuses);
+          setAgentStatuses(idleStatuses);
+        }, 3000);
+        break;
+      case 'invoice_updated':
+        // Update specific invoice in the list
+        setInvoices(prev => prev.map(inv => 
+          inv.id === message.data.invoiceId 
+            ? { ...inv, ...message.data.updates }
+            : inv
+        ));
+        break;
+    }
+  };
+
+  const fetchAgentZeroStatus = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/agents/agent-zero/status');
+      if (response.ok) {
+        const status = await response.json();
+        setAgentZeroStatus(status);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Agent Zero status:', error);
+    }
+  };
 
   const loadInvoices = async () => {
     setLoading(true);
@@ -164,29 +400,208 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
     }
   };
 
+  const simulateAgentActivity = (invoiceId: string, scenario: string) => {
+    console.log('🎪 SIMULATE_AGENT_ACTIVITY CALLED:', { invoiceId, scenario });
+    console.log('🔍 Current agentStatuses before simulation:', agentStatuses);
+    
+    // Define different processing steps based on scenario
+    const getProcessingSteps = (scenario: string) => {
+      console.log('⚙️ Getting processing steps for scenario:', scenario);
+      const baseSteps = [
+        {
+          agent: 'CoordinatorAgent',
+          task: `Analyzing ${scenario} invoice`,
+          duration: scenario === 'simple' ? 500 : 800,
+          confidence: 0.95
+        }
+      ];
+
+      // Document processing varies by scenario
+      if (scenario === 'poor_quality') {
+        baseSteps.push({
+          agent: 'DocumentProcessorAgent',
+          task: 'Enhanced OCR processing',
+          duration: 2500,
+          confidence: 0.75
+        });
+      } else if (scenario === 'complex') {
+        baseSteps.push({
+          agent: 'DocumentProcessorAgent',
+          task: 'Multi-method extraction',
+          duration: 1800,
+          confidence: 0.88
+        });
+      } else {
+        baseSteps.push({
+          agent: 'DocumentProcessorAgent',
+          task: 'Fast text extraction',
+          duration: 1000,
+          confidence: 0.94
+        });
+      }
+
+      // Validation varies by scenario  
+      if (scenario === 'duplicate') {
+        baseSteps.push({
+          agent: 'ValidationAgent',
+          task: 'Duplicate detection',
+          duration: 1500,
+          confidence: 0.85
+        });
+      } else if (scenario === 'exceptional') {
+        baseSteps.push({
+          agent: 'ValidationAgent',
+          task: 'Enhanced validation',
+          duration: 1200,
+          confidence: 0.91
+        });
+      } else {
+        baseSteps.push({
+          agent: 'ValidationAgent',
+          task: 'Standard validation',
+          duration: 800,
+          confidence: 0.96
+        });
+      }
+
+      // Workflow routing varies by scenario
+      if (scenario === 'exceptional') {
+        baseSteps.push({
+          agent: 'WorkflowAgent',
+          task: 'Executive routing',
+          duration: 900,
+          confidence: 0.87
+        });
+      } else if (scenario === 'complex') {
+        baseSteps.push({
+          agent: 'WorkflowAgent',
+          task: 'Manager approval',
+          duration: 700,
+          confidence: 0.92
+        });
+      } else {
+        baseSteps.push({
+          agent: 'WorkflowAgent',
+          task: 'Auto-approval',
+          duration: 400,
+          confidence: 0.98
+        });
+      }
+
+      return baseSteps;
+    };
+
+    const processingSteps = getProcessingSteps(scenario);
+    console.log('📋 Generated processing steps:', processingSteps);
+
+    let delay = 0;
+    processingSteps.forEach((step, index) => {
+      console.log(`⏰ Scheduling step ${index + 1}: ${step.agent} - ${step.task} (delay: ${delay}ms)`);
+      
+      // Set agent to working state
+      setTimeout(() => {
+        console.log(`🔄 EXECUTING STEP: ${step.agent} -> ${step.task}`);
+        setAgentStatuses(prev => {
+          const newStatuses = {
+            ...prev,
+            [step.agent]: {
+              status: 'working',
+              currentTask: step.task,
+              confidence: step.confidence
+            }
+          };
+          console.log('📊 Setting agentStatuses to:', newStatuses);
+          return newStatuses;
+        });
+      }, delay);
+
+      delay += step.duration;
+
+      // Set agent back to idle after completion
+      setTimeout(() => {
+        console.log(`✅ COMPLETING STEP: ${step.agent} -> ${index === processingSteps.length - 1 ? 'Completed' : 'Ready'}`);
+        setAgentStatuses(prev => {
+          const newStatuses = {
+            ...prev,
+            [step.agent]: {
+              status: 'idle',
+              currentTask: index === processingSteps.length - 1 ? 'Completed' : 'Ready',
+              confidence: step.confidence
+            }
+          };
+          console.log('📊 Setting completion agentStatuses to:', newStatuses);
+          return newStatuses;
+        });
+      }, delay);
+    });
+
+    // Reset all agents to idle after processing is complete
+    setTimeout(() => {
+      console.log('🔄 FINAL RESET: Setting all agents back to idle');
+      const finalStatuses = {
+        'CoordinatorAgent': { status: 'idle', currentTask: 'Waiting for invoices', confidence: 0.95 },
+        'DocumentProcessorAgent': { status: 'idle', currentTask: 'Ready for extraction', confidence: 0.90 },
+        'ValidationAgent': { status: 'idle', currentTask: 'Standing by', confidence: 0.93 },
+        'WorkflowAgent': { status: 'idle', currentTask: 'Ready to route', confidence: 0.88 }
+      };
+      console.log('📊 Final agentStatuses:', finalStatuses);
+      setAgentStatuses(finalStatuses);
+    }, delay + 1000);
+  };
+
   const getAIAnalysis = (invoice: Invoice) => {
-    // Calculate confidence based on status and issues
-    let confidence = 95;
+    // Use Agent Zero confidence if available, otherwise calculate
+    let confidence = invoice.agentConfidence ? Math.round(invoice.agentConfidence * 100) : 95;
     let barColor = 'bg-green-500';
     let variance = '';
+    let status = 'Processed';
+    let processingTime = '';
 
-    if (invoice.hasIssues || invoice.status === 'pending_review') {
-      confidence = 75 + Math.random() * 15; // 75-90% for issues
-      barColor = 'bg-amber-500';
-      if (invoice.variancePercentage) {
-        variance = `${invoice.variancePercentage.toFixed(1)}% variance`;
+    // Check Agent Zero processing status
+    if (invoice.agentProcessingStarted && !invoice.agentProcessingCompleted) {
+      status = 'Processing...';
+      confidence = 50;
+      barColor = 'bg-blue-500';
+    } else if (invoice.agentProcessingCompleted) {
+      status = 'AI Processed';
+      if (invoice.processingTimeMs) {
+        processingTime = `${(invoice.processingTimeMs / 1000).toFixed(1)}s`;
       }
-    } else if (invoice.status === 'approved') {
-      confidence = 95 + Math.random() * 5; // 95-100% for approved
-      barColor = 'bg-green-500';
     }
 
-    const widthClass = `w-[${Math.round(confidence)}%]`;
+    // Determine confidence and color based on Agent Zero analysis
+    if (invoice.agentConfidence) {
+      if (invoice.agentConfidence >= 0.9) {
+        barColor = 'bg-green-500';
+      } else if (invoice.agentConfidence >= 0.7) {
+        barColor = 'bg-amber-500';
+      } else {
+        barColor = 'bg-red-500';
+      }
+    } else {
+      // Fallback to legacy logic
+      if (invoice.hasIssues || invoice.status === 'pending_review') {
+        confidence = 75 + Math.random() * 15;
+        barColor = 'bg-amber-500';
+      }
+    }
+
+    if (invoice.variancePercentage) {
+      variance = `${invoice.variancePercentage.toFixed(1)}% variance`;
+    }
+
+    // Add workflow route info
+    let route = invoice.workflowRoute || 'Standard';
     
     return { 
       confidence: Math.round(confidence), 
-      bar: `${widthClass} ${barColor}`,
-      variance 
+      bar: `w-[${Math.round(confidence)}%] ${barColor}`,
+      variance,
+      status,
+      processingTime,
+      route,
+      scenario: invoice.scenario,
+      reasoning: invoice.agentReasoning
     };
   };
 
@@ -283,6 +698,333 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           </div>
         </div>
       )}
+
+      {/* Agent Zero Control Panel */}
+      <div 
+        className="mb-6 relative overflow-hidden transition-all duration-500 ease-in-out"
+        style={{
+          background: 'linear-gradient(180deg, #1E293B 0%, #0F172A 100%)',
+          borderRadius: '16px',
+          padding: agentZeroExpanded ? '20px 24px 24px 24px' : '16px 24px 16px 24px',
+          boxShadow: '0 0.5px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 16px rgba(0, 0, 0, 0.04)',
+          border: '1px solid rgba(148, 163, 184, 0.2)',
+          maxHeight: agentZeroExpanded ? '600px' : '80px',
+          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+      >
+        {/* Header Section - Only this part is clickable */}
+        <div 
+          className="flex justify-between items-center cursor-pointer hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors"
+          onClick={() => setAgentZeroExpanded(!agentZeroExpanded)}
+        >
+          <div className="flex items-center gap-4">
+            <div 
+              className="flex items-center justify-center relative overflow-hidden"
+              style={{
+                width: '36px',
+                height: '36px',
+                background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                borderRadius: '10px',
+                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3), 0 4px 12px rgba(59, 130, 246, 0.2), 0 8px 24px rgba(59, 130, 246, 0.1)'
+              }}
+            >
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 100%)'
+                }}
+              />
+              <Brain size={18} color="white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Agent Zero Intelligence</h3>
+              <div className="text-xs text-slate-300">Multi-agent orchestration system</div>
+            </div>
+            <div 
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-white"
+              style={{
+                padding: '4px 10px',
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(29, 78, 216, 0.3) 100%)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}
+            >
+              <div 
+                className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"
+                style={{
+                  boxShadow: '0 0 0 3px rgba(34, 197, 94, 0.3)'
+                }}
+              />
+              <span>{agentZeroStatus?.activeAgents || 0} agents</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <div className="text-lg font-semibold text-white">
+                {agentZeroStatus?.activePlans || 0}
+              </div>
+              <div className="text-xs text-slate-400">Active plans</div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-semibold text-white">
+                {agentZeroStatus?.status === 'running' ? '100%' : '0%'}
+              </div>
+              <div className="text-xs text-slate-400">Uptime</div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-semibold text-white">
+                {agentZeroActivity.length}
+              </div>
+              <div className="text-xs text-slate-400">Activities</div>
+            </div>
+            <div
+              className="ml-4 p-2 rounded-lg transition-all duration-200 text-slate-300"
+              style={{
+                transform: agentZeroExpanded ? 'rotate(0deg)' : 'rotate(-180deg)',
+                transition: 'transform 0.3s ease'
+              }}
+            >
+              <ChevronDown size={16} />
+            </div>
+          </div>
+        </div>
+        
+        {/* Agent Zero Activity - Fixed Layout Grid */}
+        <div 
+          className="transition-all duration-500 ease-in-out"
+          style={{
+            opacity: agentZeroExpanded ? 1 : 0,
+            height: agentZeroExpanded ? 'auto' : '0px',
+            overflow: 'hidden',
+            marginTop: agentZeroExpanded ? '16px' : '0px'
+          }}
+        >
+          {/* CSS Grid Layout Container */}
+          <div 
+            className="grid gap-4"
+            style={{
+              gridTemplateRows: '80px auto minmax(160px, 1fr)',
+              gridTemplateAreas: `
+                "processing"
+                "agents"
+                "activity"
+              `
+            }}
+          >
+            {/* Processing Status Zone - Fixed 80px height */}
+            <div 
+              className="relative overflow-hidden rounded-lg border border-slate-700 transition-all duration-300"
+              style={{ 
+                gridArea: 'processing',
+                background: currentProcessing 
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(30, 41, 59, 0.5) 100%)'
+                  : 'rgba(30, 41, 59, 0.2)'
+              }}
+            >
+              {/* Processing Active State */}
+              <div 
+                className="absolute inset-0 p-3 transition-all duration-300"
+                style={{
+                  opacity: currentProcessing ? 1 : 0,
+                  transform: currentProcessing ? 'translateY(0)' : 'translateY(10px)'
+                }}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Activity size={16} className="text-blue-400 animate-pulse" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white truncate">
+                        Processing Invoice #{currentProcessing?.invoiceId?.slice(-8) || ''}
+                      </span>
+                      {currentProcessing?.scenario && (
+                        <span className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded">
+                          {currentProcessing.scenario}
+                        </span>
+                      )}
+                      {currentProcessing?.batchInfo && (
+                        <span className="px-2 py-0.5 text-xs bg-purple-600 text-white rounded">
+                          {currentProcessing.batchInfo.index}/{currentProcessing.batchInfo.total}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      {currentProcessing?.status} • {currentProcessing?.timestamp?.toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Processing Pipeline - Compact Inline */}
+                <div className="ml-7">
+                  <div className="flex items-center gap-1">
+                    {['Coordinator', 'Extractor', 'Validator', 'Router'].map((name, index) => {
+                      const agentName = name === 'Coordinator' ? 'CoordinatorAgent' :
+                                      name === 'Extractor' ? 'DocumentProcessorAgent' :
+                                      name === 'Validator' ? 'ValidationAgent' : 'WorkflowAgent';
+                      const status = agentStatuses[agentName];
+                      const isActive = status?.status === 'working';
+                      const isCompleted = status?.currentTask === 'Completed';
+                      
+                      return (
+                        <div key={name} className="flex items-center gap-1">
+                          <div 
+                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                              isActive 
+                                ? 'bg-blue-400 animate-pulse shadow-lg shadow-blue-400/50' 
+                                : isCompleted
+                                  ? 'bg-green-400 shadow-lg shadow-green-400/50'
+                                  : 'bg-slate-600'
+                            }`}
+                          />
+                          <span className={`text-xs font-medium ${isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-slate-500'}`}>
+                            {name}
+                          </span>
+                          {index < 3 && (
+                            <ChevronRight size={8} className={`mx-1 ${
+                              isActive ? 'text-blue-400' : isCompleted ? 'text-green-400' : 'text-slate-600'
+                            }`} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Idle State */}
+              <div 
+                className="absolute inset-0 p-3 flex items-center justify-center transition-all duration-300"
+                style={{
+                  opacity: currentProcessing ? 0 : 1,
+                  transform: currentProcessing ? 'translateY(-10px)' : 'translateY(0)'
+                }}
+              >
+                <div className="flex items-center gap-3 text-slate-400">
+                  <div className="w-8 h-8 rounded-full bg-slate-700/50 flex items-center justify-center">
+                    <Brain size={16} className="text-slate-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-slate-300">No Active Processing</div>
+                    <div className="text-xs text-slate-500">Agents ready for next invoice</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Agent Status Grid - Compact Design */}
+            <div className="grid grid-cols-2 gap-2" style={{ gridArea: 'agents' }}>
+              {['CoordinatorAgent', 'DocumentProcessorAgent', 'ValidationAgent', 'WorkflowAgent'].map((agentName) => {
+                const status = agentStatuses[agentName];
+                const isActive = status?.status === 'working';
+                const isCompleted = status?.currentTask === 'Completed';
+                const displayName = agentName === 'CoordinatorAgent' ? 'Coordinator' :
+                                 agentName === 'DocumentProcessorAgent' ? 'Extractor' :
+                                 agentName === 'ValidationAgent' ? 'Validator' : 'Router';
+                
+                // Debug logging for each agent card render
+                console.log(`🎭 AGENT CARD RENDER - ${agentName}:`, {
+                  status: status?.status,
+                  isActive: isActive,
+                  isCompleted: isCompleted,
+                  currentTask: status?.currentTask,
+                  confidence: status?.confidence,
+                  fullStatus: JSON.stringify(status)
+                });
+                
+                return (
+                  <div 
+                    key={agentName}
+                    className={`p-2 rounded-lg border transition-all duration-300 ${
+                      isActive 
+                        ? 'bg-blue-900/40 border-blue-500/50 shadow-lg shadow-blue-500/20' 
+                        : isCompleted
+                          ? 'bg-green-900/30 border-green-500/50'
+                          : 'bg-slate-800/30 border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div 
+                          className={`w-2 h-2 rounded-full transition-all duration-300 flex-shrink-0 ${
+                            isActive 
+                              ? 'bg-blue-400 animate-pulse shadow-lg shadow-blue-400/50' 
+                              : isCompleted
+                                ? 'bg-green-400 shadow-lg shadow-green-400/50'
+                                : 'bg-slate-500'
+                          }`}
+                        />
+                        <span className="text-xs font-medium text-white truncate">
+                          {displayName}
+                        </span>
+                      </div>
+                      {status?.confidence && (
+                        <span className={`text-xs font-semibold ${
+                          isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-slate-400'
+                        }`}>
+                          {Math.round(status.confidence * 100)}%
+                        </span>
+                      )}
+                    </div>
+                    <div className={`text-xs mt-1 truncate transition-colors duration-300 ${
+                      isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-slate-400'
+                    }`}>
+                      {status?.currentTask || 'Idle'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Activity Feed - Flexible height */}
+            <div 
+              className="rounded-lg border border-slate-700 bg-slate-800/20 p-3"
+              style={{ 
+                gridArea: 'activity',
+                minHeight: '160px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Activity size={14} className="text-slate-400" />
+                <span className="text-xs font-medium text-slate-300">Recent Activity</span>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2" style={{ maxHeight: '200px' }}>
+                {agentZeroActivity.slice(0, 8).map((activity, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/40"
+                  >
+                    <div className="flex-shrink-0">
+                      {activity.type.includes('completed') ? (
+                        <CheckCircle size={12} className="text-green-400" />
+                      ) : activity.type.includes('error') ? (
+                        <AlertCircle size={12} className="text-red-400" />
+                      ) : (
+                        <Activity size={12} className="text-blue-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-white truncate">
+                        {activity.type.replace('agent_zero_', '').replace('_', ' ')}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {activity.timestamp.toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {agentZeroActivity.length === 0 && (
+                  <div className="text-xs text-slate-500 text-center py-4">
+                    No recent activity
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
 
       {/* AI Processing Pipeline */}
       <div 
@@ -725,13 +1467,30 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center space-x-1">
-                        <div className="w-12 bg-gray-200 rounded-full h-1.5">
-                          <div className={`h-1.5 rounded-full ${aiAnalysis.bar}`} style={{ width: `${aiAnalysis.confidence}%` }}></div>
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-1">
+                          <div className="w-12 bg-gray-200 rounded-full h-1.5">
+                            <div className={`h-1.5 rounded-full ${aiAnalysis.bar}`} style={{ width: `${aiAnalysis.confidence}%` }}></div>
+                          </div>
+                          <span className="text-xs font-medium text-gray-700">{aiAnalysis.confidence}%</span>
                         </div>
-                        <span className="text-xs font-medium text-gray-700">{aiAnalysis.confidence}%</span>
+                        <div className="flex items-center space-x-1 text-xs">
+                          {aiAnalysis.scenario && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              {aiAnalysis.scenario}
+                            </span>
+                          )}
+                          {aiAnalysis.processingTime && (
+                            <span className="text-green-600">⚡ {aiAnalysis.processingTime}</span>
+                          )}
+                        </div>
                         {aiAnalysis.variance && (
                           <span className="text-xs text-amber-600">{aiAnalysis.variance}</span>
+                        )}
+                        {aiAnalysis.reasoning && (
+                          <div className="text-xs text-gray-500 truncate max-w-32" title={aiAnalysis.reasoning}>
+                            💭 {aiAnalysis.reasoning}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -794,6 +1553,187 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Demo Controls Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="relative">
+          {/* Dropdown Menu */}
+          {demoDropdownOpen && (
+            <div 
+              className="absolute bottom-full right-0 mb-4 w-64 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden animate-in slide-in-from-bottom-2"
+              style={{
+                background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+              }}
+            >
+              <div className="p-3 border-b border-slate-700">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-yellow-400" />
+                  <span className="text-sm font-semibold text-white">Demo Controls</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Agent Zero demonstration tools</p>
+              </div>
+              
+              <div className="p-2 space-y-1">
+                <button
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3"
+                  onClick={async () => {
+                    setDemoDropdownOpen(false);
+                    try {
+                      const response = await fetch('http://localhost:3001/api/demo/create-realistic-scenarios', { method: 'POST' });
+                      const result = await response.json();
+                      console.log('Demo scenarios created:', result);
+                    } catch (error) {
+                      console.error('Failed to create demo scenarios:', error);
+                    }
+                  }}
+                >
+                  <span className="text-lg">🎬</span>
+                  <div>
+                    <div className="font-medium">Create Demo Scenarios</div>
+                    <div className="text-xs text-slate-400">Generate realistic test invoices</div>
+                  </div>
+                </button>
+
+                <button
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3"
+                  onClick={async () => {
+                    setDemoDropdownOpen(false);
+                    try {
+                      const response = await fetch('http://localhost:3001/api/demo/trigger-learning', { method: 'POST' });
+                      const result = await response.json();
+                      console.log('Learning demo started:', result);
+                    } catch (error) {
+                      console.error('Failed to trigger learning demo:', error);
+                    }
+                  }}
+                >
+                  <span className="text-lg">🧠</span>
+                  <div>
+                    <div className="font-medium">Learning Demo</div>
+                    <div className="text-xs text-slate-400">Show adaptive learning in action</div>
+                  </div>
+                </button>
+
+                <button
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3"
+                  onClick={() => {
+                    setDemoDropdownOpen(false);
+                    console.log('🧪 MANUAL TEST: Triggering agent simulation');
+                    simulateAgentActivity('test-123', 'simple');
+                  }}
+                >
+                  <span className="text-lg">🧪</span>
+                  <div>
+                    <div className="font-medium">Test Agent Animation</div>
+                    <div className="text-xs text-slate-400">Direct agent simulation test</div>
+                  </div>
+                </button>
+
+                <button
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3"
+                  onClick={async () => {
+                    setDemoDropdownOpen(false);
+                    try {
+                      const response = await fetch('http://localhost:3001/api/demo/create-batch/5', { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenarios: ['simple', 'complex', 'exceptional'] })
+                      });
+                      const result = await response.json();
+                      console.log('Batch created:', result);
+                    } catch (error) {
+                      console.error('Failed to create batch:', error);
+                    }
+                  }}
+                >
+                  <span className="text-lg">⚡</span>
+                  <div>
+                    <div className="font-medium">Quick Batch</div>
+                    <div className="text-xs text-slate-400">Process 5 invoices quickly</div>
+                  </div>
+                </button>
+
+                <div className="border-t border-slate-700 my-1"></div>
+
+                <button
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3"
+                  onClick={async () => {
+                    setDemoDropdownOpen(false);
+                    try {
+                      const response = await fetch('http://localhost:3001/api/demo/restart-agent-zero', { method: 'POST' });
+                      const result = await response.json();
+                      console.log('Agent Zero restarted:', result);
+                    } catch (error) {
+                      console.error('Failed to restart Agent Zero:', error);
+                    }
+                  }}
+                >
+                  <span className="text-lg">🔄</span>
+                  <div>
+                    <div className="font-medium">Restart Agent Zero</div>
+                    <div className="text-xs text-slate-400">Reset the AI system</div>
+                  </div>
+                </button>
+
+                <button
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3"
+                  onClick={async () => {
+                    setDemoDropdownOpen(false);
+                    if (confirm('Reset all demo data? This will clear all invoices.')) {
+                      try {
+                        const response = await fetch('http://localhost:3001/api/demo/reset-data', { method: 'DELETE' });
+                        const result = await response.json();
+                        console.log('Data reset:', result);
+                        window.location.reload();
+                      } catch (error) {
+                        console.error('Failed to reset data:', error);
+                      }
+                    }
+                  }}
+                >
+                  <span className="text-lg">🧹</span>
+                  <div>
+                    <div className="font-medium">Reset Data</div>
+                    <div className="text-xs text-slate-400">Clear all demo invoices</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Floating Action Button */}
+          <button
+            onClick={() => setDemoDropdownOpen(!demoDropdownOpen)}
+            className="flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+              boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3), 0 6px 6px rgba(99, 102, 241, 0.2)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 15px 30px rgba(99, 102, 241, 0.4), 0 10px 15px rgba(99, 102, 241, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 10px 20px rgba(99, 102, 241, 0.3), 0 6px 6px rgba(99, 102, 241, 0.2)';
+            }}
+          >
+            <div 
+              className="transition-transform duration-300"
+              style={{ transform: demoDropdownOpen ? 'rotate(45deg)' : 'rotate(0deg)' }}
+            >
+              <Sparkles size={24} className="text-white" />
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Click outside to close dropdown */}
+      {demoDropdownOpen && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setDemoDropdownOpen(false)}
+        />
       )}
     </div>
   );

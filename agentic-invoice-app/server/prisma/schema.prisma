@@ -41,6 +41,17 @@ model Invoice {
   variancePercentage   Float?
   currency             String               @default("USD")
   notes                String?
+  
+  // Agent Zero specific fields
+  agentProcessingStarted   DateTime?
+  agentProcessingCompleted DateTime?
+  agentConfidence         Float?
+  agentReasoning          String?
+  workflowRoute           String?
+  learningImpact          String?
+  processingTimeMs        Int?
+  scenario                String?             // Demo scenario type
+  
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   

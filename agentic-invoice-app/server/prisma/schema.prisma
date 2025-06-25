@@ -168,6 +168,7 @@ model AgentActivity {
   invoiceId           String?
   confidenceLevel     Float?
   affectedLineItems   String?
+  metadata            Json?           // For storing learning experience data
   createdAt           DateTime        @default(now())
   
   invoice             Invoice?        @relation(fields: [invoiceId], references: [id])

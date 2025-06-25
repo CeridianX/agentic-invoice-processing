@@ -1231,7 +1231,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 );
                 const automationRate = processedInvoices.length > 0 
                   ? Math.round((automatedInvoices.length / processedInvoices.length) * 100)
-                  : 94; // Default when no processed invoices yet
+                  : 0; // Default when no processed invoices yet
                 
                 return (
                   <>
@@ -1279,11 +1279,11 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
         
         {/* Pipeline Flow */}
         <div 
-          className="flex items-stretch gap-3 py-2 transition-all duration-500 ease-in-out"
+          className="flex items-stretch gap-2 py-1 transition-all duration-500 ease-in-out"
           style={{
             opacity: pipelineExpanded ? 1 : 0,
             transform: pipelineExpanded ? 'translateY(0)' : 'translateY(-20px)',
-            marginTop: pipelineExpanded ? '16px' : '0',
+            marginTop: pipelineExpanded ? '12px' : '0',
             pointerEvents: pipelineExpanded ? 'auto' : 'none'
           }}
         >
@@ -1293,8 +1293,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             style={{
               background: 'linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%)',
               border: '1px solid rgba(0, 0, 0, 0.06)',
-              borderRadius: '10px',
-              padding: '12px 16px',
+              borderRadius: '8px',
+              padding: '8px 12px',
               boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02)'
             }}
             onMouseEnter={(e) => {
@@ -1306,21 +1306,21 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.06)';
             }}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Queue</div>
               <div 
                 className="inline-flex items-center gap-1 text-xs font-semibold text-white"
                 style={{
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-                  borderRadius: '10px',
-                  boxShadow: '0 2px 4px rgba(139, 92, 246, 0.2)'
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 2px rgba(139, 92, 246, 0.2)'
                 }}
               >
                 AI
               </div>
             </div>
-            <div className="text-xl font-bold text-gray-900 mb-1">{invoices.filter(i => i.status === 'pending').length}</div>
+            <div className="text-lg font-bold text-gray-900">{invoices.filter(i => i.status === 'pending').length}</div>
             <div className="text-xs text-gray-600 font-medium">
               {(() => {
                 const pendingCount = invoices.filter(i => i.status === 'pending').length;
@@ -1329,8 +1329,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 return `${pendingCount} awaiting`;
               })()}
             </div>
-            <div className="absolute bottom-1.5 right-1.5 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
-              View <ChevronRight size={10} />
+            <div className="absolute bottom-1 right-1 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              View <ChevronRight size={8} />
             </div>
           </div>
           
@@ -1338,7 +1338,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           <div 
             className="relative overflow-hidden flex items-center"
             style={{
-              flex: '0 0 40px'
+              flex: '0 0 24px'
             }}
           >
             <div
@@ -1367,8 +1367,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             style={{
               background: 'linear-gradient(180deg, #F5F3FF 0%, #EDE9FE 100%)',
               border: '1px solid rgba(139, 92, 246, 0.1)',
-              borderRadius: '10px',
-              padding: '12px 16px',
+              borderRadius: '8px',
+              padding: '8px 12px',
               boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02)'
             }}
             onMouseEnter={(e) => {
@@ -1380,21 +1380,21 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.1)';
             }}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Processing</div>
               <div 
                 className="inline-flex items-center gap-1 text-xs font-semibold text-white"
                 style={{
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-                  borderRadius: '10px',
-                  boxShadow: '0 2px 4px rgba(139, 92, 246, 0.2)'
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 2px rgba(139, 92, 246, 0.2)'
                 }}
               >
                 AI
               </div>
             </div>
-            <div className="text-xl font-bold text-gray-900 mb-1">
+            <div className="text-lg font-bold text-gray-900">
               {(() => {
                 const processingCount = currentProcessing ? 1 : 0;
                 const processedInvoices = invoices.filter(inv => inv.agentProcessingCompleted);
@@ -1411,8 +1411,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 return `~${avgSeconds}s avg`;
               })()}
             </div>
-            <div className="absolute bottom-1.5 right-1.5 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
-              Monitor <ChevronRight size={10} />
+            <div className="absolute bottom-1 right-1 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              Monitor <ChevronRight size={8} />
             </div>
           </div>
           
@@ -1420,7 +1420,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           <div 
             className="relative overflow-hidden flex items-center"
             style={{
-              flex: '0 0 30px'
+              flex: '0 0 20px'
             }}
           >
             <div
@@ -1449,8 +1449,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             style={{
               background: 'linear-gradient(180deg, #FEF7F7 0%, #FFF5F5 100%)',
               border: '1px solid rgba(239, 68, 68, 0.1)',
-              borderRadius: '10px',
-              padding: '12px 16px',
+              borderRadius: '8px',
+              padding: '8px 12px',
               boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02)'
             }}
             onMouseEnter={(e) => {
@@ -1462,21 +1462,21 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.1)';
             }}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Exceptions</div>
               <div 
                 className="inline-flex items-center gap-1 text-xs font-semibold text-white"
                 style={{
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-                  borderRadius: '10px',
-                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)'
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 2px rgba(239, 68, 68, 0.2)'
                 }}
               >
                 AI
               </div>
             </div>
-            <div className="text-xl font-bold text-red-600 mb-1">
+            <div className="text-lg font-bold text-red-600">
               {(() => {
                 const reviewInvoices = invoices.filter(i => 
                   i.status === 'pending_review' || 
@@ -1498,8 +1498,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 return reviewCount === 0 ? 'All clear' : 'Need review';
               })()}
             </div>
-            <div className="absolute bottom-1.5 right-1.5 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
-              Review <ChevronRight size={10} />
+            <div className="absolute bottom-1 right-1 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              Review <ChevronRight size={8} />
             </div>
           </div>
 
@@ -1507,7 +1507,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           <div 
             className="relative overflow-hidden flex items-center"
             style={{
-              flex: '0 0 30px'
+              flex: '0 0 20px'
             }}
           >
             <div
@@ -1536,8 +1536,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             style={{
               background: 'linear-gradient(180deg, #FFFBF0 0%, #FFFDF7 100%)',
               border: '1px solid rgba(251, 191, 36, 0.2)',
-              borderRadius: '10px',
-              padding: '12px 16px',
+              borderRadius: '8px',
+              padding: '8px 12px',
               boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02)'
             }}
             onMouseEnter={(e) => {
@@ -1549,21 +1549,21 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.2)';
             }}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Approval</div>
               <div 
                 className="inline-flex items-center gap-1 text-xs font-semibold text-white"
                 style={{
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                  borderRadius: '10px',
-                  boxShadow: '0 2px 4px rgba(251, 191, 36, 0.2)'
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 2px rgba(251, 191, 36, 0.2)'
                 }}
               >
                 AI
               </div>
             </div>
-            <div className="text-xl font-bold text-amber-600 mb-1">{invoices.filter(i => i.status === 'pending_approval').length}</div>
+            <div className="text-lg font-bold text-amber-600">{invoices.filter(i => i.status === 'pending_approval').length}</div>
             <div className="text-xs text-amber-600 font-medium">
               {(() => {
                 const pendingApproval = invoices.filter(i => i.status === 'pending_approval');
@@ -1579,8 +1579,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 return urgentCount > 0 ? `${urgentCount} urgent` : 'Standard priority';
               })()}
             </div>
-            <div className="absolute bottom-1.5 right-1.5 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
-              Approve <ChevronRight size={10} />
+            <div className="absolute bottom-1 right-1 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              Approve <ChevronRight size={8} />
             </div>
           </div>
 
@@ -1588,7 +1588,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           <div 
             className="relative overflow-hidden flex items-center"
             style={{
-              flex: '0 0 30px'
+              flex: '0 0 20px'
             }}
           >
             <div
@@ -1617,8 +1617,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             style={{
               background: 'linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%)',
               border: '1px solid rgba(34, 197, 94, 0.1)',
-              borderRadius: '10px',
-              padding: '12px 16px',
+              borderRadius: '8px',
+              padding: '8px 12px',
               boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02)'
             }}
             onMouseEnter={(e) => {
@@ -1630,24 +1630,24 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               e.currentTarget.style.borderColor = 'rgba(34, 197, 94, 0.1)';
             }}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Payment Ready</div>
               <div 
                 className="inline-flex items-center gap-1 text-xs font-semibold text-white"
                 style={{
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                  borderRadius: '10px',
-                  boxShadow: '0 2px 4px rgba(34, 197, 94, 0.2)'
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 2px rgba(34, 197, 94, 0.2)'
                 }}
               >
                 AI
               </div>
             </div>
-            <div className="text-xl font-bold text-green-600 mb-1">{invoices.filter(i => i.status === 'approved' || i.status === 'processed').length}</div>
+            <div className="text-lg font-bold text-green-600">{invoices.filter(i => i.status === 'approved' || i.status === 'processed').length}</div>
             <div className="text-xs text-gray-600 font-medium">${(invoices.filter(i => i.status === 'approved' || i.status === 'processed').reduce((sum, inv) => sum + inv.amount, 0) / 1000).toFixed(0)}K total</div>
-            <div className="absolute bottom-1.5 right-1.5 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
-              Schedule <ChevronRight size={10} />
+            <div className="absolute bottom-1 right-1 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              Schedule <ChevronRight size={8} />
             </div>
           </div>
         </div>

@@ -69,6 +69,8 @@ router.post('/create-invoice/:scenario', async (req, res) => {
       
       // Start Agent Zero processing in background
       agentZeroService.processInvoice(invoice.id).then(result => {
+        console.log(`✅ Agent Zero processing completed for ${invoice.invoiceNumber}:`, result);
+        
         // Emit processing completed event
         agentZeroService.emit('invoice_processing_completed', {
           invoiceId: invoice.id,
@@ -76,8 +78,12 @@ router.post('/create-invoice/:scenario', async (req, res) => {
           result,
           timestamp: new Date()
         });
+        
+        console.log(`📡 Emitted invoice_processing_completed event for ${invoice.invoiceNumber}`);
       }).catch(error => {
         console.error('Agent Zero processing error:', error);
+        console.log(`⚠️ Processing failed for ${invoice.invoiceNumber}, emitting fallback completion event`);
+        
         // For demo purposes, emit a completed event even on error to avoid showing errors in UI
         agentZeroService.emit('invoice_processing_completed', {
           invoiceId: invoice.id,
@@ -86,7 +92,9 @@ router.post('/create-invoice/:scenario', async (req, res) => {
             success: false,
             confidence: 0.1,
             reasoning: 'Processing encountered issues - manual review required',
-            workflow: 'manual_review'
+            workflowRoute: 'manual_review',
+            status: 'requires_review',
+            hasIssues: true
           },
           timestamp: new Date()
         });

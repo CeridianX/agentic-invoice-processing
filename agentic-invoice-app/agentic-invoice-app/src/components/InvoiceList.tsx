@@ -1,5 +1,58 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Sparkles, Zap, ChevronRight, ChevronDown, Brain, Activity, CheckCircle, AlertCircle, X, BarChart3 } from 'lucide-react';
+
+// Shiny Text Component using framer-motion
+const ShinyText = ({ children, className = "", variant = "purple" }: { children: React.ReactNode; className?: string; variant?: "purple" | "green" }) => {
+  return (
+    <>
+      <style>
+        {`
+          @keyframes shine {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          .shiny-text-purple {
+            background: linear-gradient(90deg, #c084fc 0%, #a855f7 25%, #7c3aed 50%, #a855f7 75%, #c084fc 100%);
+            background-size: 200% 100%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 2s ease-in-out infinite;
+          }
+          .shiny-text-green {
+            background: linear-gradient(90deg, #4ade80 0%, #22c55e 25%, #16a34a 50%, #22c55e 75%, #4ade80 100%);
+            background-size: 200% 100%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 2s ease-in-out infinite;
+          }
+          @keyframes fade-in {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+          }
+          .animate-fade-in {
+            animation: fade-in 0.8s ease-out;
+          }
+        `}
+      </style>
+      <motion.span 
+        className={`${variant === "green" ? "shiny-text-green" : "shiny-text-purple"} ${className}`}
+        initial={{ opacity: 0.8 }}
+        animate={{ opacity: 1 }}
+        transition={{ 
+          duration: 0.5,
+          repeat: Infinity,
+          repeatType: "reverse",
+          ease: "easeInOut"
+        }}
+      >
+        {children}
+      </motion.span>
+    </>
+  );
+};
 import DemoAnalyticsDashboard from './DemoAnalyticsDashboard';
 
 // Define types directly in the component
@@ -89,6 +142,9 @@ interface AgentZeroActivity {
   type: string;
   data: any;
   timestamp: Date;
+  icon?: string;
+  message?: string;
+  category?: string;
 }
 
 interface CurrentProcessing {
@@ -164,8 +220,13 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       };
 
       wsRef.current.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        handleAgentZeroMessage(message);
+        try {
+          const message = JSON.parse(event.data);
+          console.log('📨 Raw WebSocket message:', message);
+          handleAgentZeroMessage(message);
+        } catch (error) {
+          console.error('❌ Error parsing WebSocket message:', error, event.data);
+        }
       };
 
       wsRef.current.onclose = () => {
@@ -182,11 +243,156 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
     }
   };
 
+  // Format activity messages to be user-friendly
+  const formatActivityMessage = (type: string, data: any) => {
+    const invoiceNumber = data?.invoiceId ? 
+      invoices.find(inv => inv.id === data.invoiceId)?.invoiceNumber || 
+      `#${data.invoiceId.slice(-6)}` : 
+      (type.includes('invoice') ? 'invoice' : '');
+    
+    const agentDisplayName = {
+      'CoordinatorAgent': 'Coordinator',
+      'DocumentProcessorAgent': 'Document Processor', 
+      'ValidationAgent': 'Validator',
+      'WorkflowAgent': 'Workflow Router'
+    };
+
+    switch (type) {
+      case 'agent_zero_processing_started':
+        return {
+          icon: '📋',
+          message: `Invoice ${invoiceNumber} processing started`,
+          category: 'processing'
+        };
+
+      case 'agent_zero_coordinator_started':
+        return {
+          icon: '🎯',
+          message: `Coordinator analyzing invoice ${invoiceNumber}`,
+          category: 'planning'
+        };
+
+      case 'agent_zero_coordinator_completed':
+        const stepCount = data?.result?.stepsCount || 3;
+        return {
+          icon: '✅',
+          message: `Processing plan created for ${invoiceNumber} (${stepCount} steps)`,
+          category: 'planning'
+        };
+
+      case 'agent_zero_step_started':
+        const agentName = agentDisplayName[data?.step?.agentName] || 'Agent';
+        const action = data?.step?.action || 'processing';
+        const actionMap = {
+          'extract_data': 'extracting document data',
+          'validate_invoice': 'validating invoice', 
+          'route_approval': 'routing for approval'
+        };
+        const friendlyAction = actionMap[action] || action;
+        
+        return {
+          icon: data?.step?.agentName === 'DocumentProcessorAgent' ? '📄' :
+                data?.step?.agentName === 'ValidationAgent' ? '🔍' : '🚀',
+          message: `${agentName} ${friendlyAction} for ${invoiceNumber}`,
+          category: 'execution'
+        };
+
+      case 'agent_zero_step_completed':
+        // We need to get the agent from current processing state
+        // This will be enhanced when we have the step result data
+        const confidence = data?.result?.confidence ? 
+          ` (${Math.round(data.result.confidence * 100)}% confidence)` : '';
+        
+        // Try to determine which agent completed based on result data
+        let completedAgentName = 'Agent';
+        let completedAction = 'step';
+        let completedIcon = '✅';
+        
+        if (data?.result?.extractedData) {
+          completedAgentName = 'Document Processor';
+          completedAction = 'data extraction';
+          completedIcon = '📄';
+        } else if (data?.result?.isValid !== undefined) {
+          completedAgentName = 'Validator';
+          completedAction = 'validation';
+          completedIcon = '🔍';
+          if (data.result.issues?.length > 0) {
+            completedIcon = '⚠️';
+            completedAction = `validation (${data.result.issues.length} issue${data.result.issues.length > 1 ? 's' : ''} found)`;
+          }
+        } else if (data?.result?.route || data?.result?.workflowType) {
+          completedAgentName = 'Workflow Router';
+          const route = data.result.route || data.result.workflowType;
+          const routeMap = {
+            'auto_approve': 'approved for auto-payment',
+            'manager_approval': 'routed to manager',
+            'executive_approval': 'routed to executive',
+            'manual_review': 'flagged for review'
+          };
+          completedAction = `routing (${routeMap[route] || route})`;
+          completedIcon = route === 'auto_approve' ? '💰' : 
+                        route === 'manual_review' ? '⚠️' : '🚀';
+        }
+        
+        return {
+          icon: completedIcon,
+          message: `${completedAgentName} completed ${completedAction} for ${invoiceNumber}${confidence}`,
+          category: 'execution'
+        };
+
+      case 'agent_zero_processing_completed':
+        // Try to get more context about the final outcome
+        let completionMessage = `Invoice ${invoiceNumber} processing completed`;
+        let completionIcon = '🎉';
+        
+        // Look for result data in the related invoice
+        const processedInvoice = invoices.find(inv => inv.id === data?.invoiceId);
+        if (processedInvoice) {
+          if (processedInvoice.status === 'approved') {
+            completionMessage = `Invoice ${invoiceNumber} approved for payment`;
+            completionIcon = '💰';
+          } else if (processedInvoice.status === 'requires_review') {
+            completionMessage = `Invoice ${invoiceNumber} requires manual review`;
+            completionIcon = '⚠️';
+          } else if (processedInvoice.status === 'pending_approval') {
+            completionMessage = `Invoice ${invoiceNumber} pending approval`;
+            completionIcon = '⏳';
+          }
+        }
+        
+        return {
+          icon: completionIcon,
+          message: completionMessage,
+          category: 'completion'
+        };
+
+      case 'invoice_created':
+        const invoiceCount = data?.invoices?.length || 1;
+        return {
+          icon: '📥',
+          message: `${invoiceCount} new demo invoice${invoiceCount > 1 ? 's' : ''} created`,
+          category: 'system'
+        };
+
+      default:
+        // Fallback for unknown types
+        const cleanType = type.replace('agent_zero_', '').replace(/_/g, ' ');
+        return {
+          icon: '📋',
+          message: cleanType,
+          category: 'system'
+        };
+    }
+  };
+
   const handleAgentZeroMessage = (message: any) => {
+    const formattedActivity = formatActivityMessage(message.type, message.data);
+    
     const activity: AgentZeroActivity = {
       type: message.type,
       data: message.data,
-      timestamp: new Date()
+      timestamp: new Date(),
+      ...formattedActivity // Add formatted message, icon, category
     };
 
     setAgentZeroActivity(prev => [activity, ...prev.slice(0, 19)]); // Keep last 20 activities
@@ -202,34 +408,118 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           timestamp: new Date()
         });
         break;
+      case 'agent_zero_coordinator_started':
+        setAgentStatuses(prev => ({
+          ...prev,
+          'CoordinatorAgent': {
+            status: 'working',
+            currentTask: 'Creating orchestration plan',
+            confidence: 0.95
+          }
+        }));
+        break;
+      case 'agent_zero_coordinator_completed':
+        setAgentStatuses(prev => ({
+          ...prev,
+          'CoordinatorAgent': {
+            status: 'idle',
+            currentTask: 'Plan created',
+            confidence: message.data.confidence || 0.95
+          }
+        }));
+        break;
       case 'agent_zero_step_started':
         setCurrentProcessing(prev => prev ? {
           ...prev,
           currentStep: message.data.step,
           status: 'processing'
         } : null);
+        
+        // Update specific agent status to working
+        if (message.data.step && message.data.step.agentName) {
+          setAgentStatuses(prev => ({
+            ...prev,
+            [message.data.step.agentName]: {
+              status: 'working',
+              currentTask: message.data.step.action,
+              confidence: message.data.step.confidence || 0.85
+            }
+          }));
+        }
         break;
+        
       case 'agent_zero_step_completed':
-        setCurrentProcessing(prev => prev ? {
-          ...prev,
-          lastCompletedStep: message.data.stepId,
-          status: 'processing'
-        } : null);
+        setCurrentProcessing(prev => {
+          // Update agent status to completed using the current step info
+          if (prev?.currentStep?.agentName) {
+            setAgentStatuses(prevStatuses => ({
+              ...prevStatuses,
+              [prev.currentStep.agentName]: {
+                status: 'idle',
+                currentTask: 'Completed',
+                confidence: message.data.result?.confidence || prev.currentStep.confidence || 0.85
+              }
+            }));
+          }
+          
+          return prev ? {
+            ...prev,
+            lastCompletedStep: message.data.stepId,
+            status: 'processing'
+          } : null;
+        });
         break;
       case 'agent_zero_processing_completed':
         setCurrentProcessing(null);
-        // Reload invoices to show updated status
-        loadInvoices();
+        
+        // Show completion state briefly
+        setShowCompletion(true);
+        setTimeout(() => setShowCompletion(false), 2000);
+        
+        // Reset agents gradually to avoid jarring UI updates
+        setTimeout(() => {
+          setAgentStatuses(prev => ({
+            ...prev,
+            'CoordinatorAgent': { status: 'idle', currentTask: 'Waiting for invoices', confidence: 0.95 },
+            'DocumentProcessorAgent': { status: 'idle', currentTask: 'Ready for extraction', confidence: 0.90 },
+            'ValidationAgent': { status: 'idle', currentTask: 'Standing by', confidence: 0.93 },
+            'WorkflowAgent': { status: 'idle', currentTask: 'Ready to route', confidence: 0.88 }
+          }));
+        }, 2500);
+        
+        // Update specific invoice instead of reloading entire list
+        if (message.data.invoiceId) {
+          setInvoices(prev => prev.map(invoice => 
+            invoice.id === message.data.invoiceId 
+              ? { ...invoice, agentProcessingCompleted: new Date().toISOString() }
+              : invoice
+          ));
+        }
+        
+        // Also refresh the invoice list to get latest status from backend
+        setTimeout(() => {
+          console.log('🔄 Refreshing invoice list after processing completion');
+          loadInvoices();
+        }, 1000);
         break;
       case 'invoice_created':
+        console.log('🆕 Invoice created event received:', message.data);
         // Add new invoice(s) to the list
         if (message.data.invoices) {
           // Batch creation
+          console.log('📦 Adding batch of invoices:', message.data.invoices.length);
           setInvoices(prev => [...message.data.invoices, ...prev]);
         } else if (message.data.invoice) {
           // Single invoice creation
+          console.log('📝 Adding single invoice:', message.data.invoice.invoiceNumber);
           setInvoices(prev => [message.data.invoice, ...prev]);
         }
+        
+        // Refresh invoice list to ensure we have latest data
+        setTimeout(() => {
+          console.log('🔄 Refreshing invoice list after creation');
+          loadInvoices();
+        }, 500);
         break;
       case 'invoice_processing_started':
         console.log('🎯 INVOICE_PROCESSING_STARTED EVENT:', message.data);
@@ -257,7 +547,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
         simulateAgentActivity(message.data.invoiceId, message.data.scenario);
         break;
       case 'invoice_processing_completed':
-        // Update invoice with processing results
+        // Update invoice with processing results including status
         setInvoices(prev => prev.map(inv => 
           inv.id === message.data.invoiceId 
             ? { 
@@ -266,7 +556,16 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 agentConfidence: message.data.result?.confidence,
                 agentReasoning: message.data.result?.reasoning,
                 workflowRoute: message.data.result?.workflowRoute,
-                processingTimeMs: message.data.result?.processingTimeMs
+                processingTimeMs: message.data.result?.processingTimeMs,
+                // Update status based on processing result
+                status: message.data.result?.status || 
+                        (message.data.result?.workflowRoute === 'auto_approve' ? 'approved' :
+                         message.data.result?.workflowRoute === 'manual_review' ? 'requires_review' :
+                         message.data.result?.workflowRoute === 'manager_approval' ? 'pending_approval' :
+                         inv.status), // Keep existing status if no route specified
+                // Update hasIssues based on result
+                hasIssues: message.data.result?.hasIssues !== undefined ? 
+                          message.data.result.hasIssues : inv.hasIssues
               }
             : inv
         ));
@@ -311,15 +610,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
   };
 
   const fetchAgentZeroStatus = async () => {
-    try {
-      const response = await fetch('http://localhost:3001/api/agents/agent-zero/status');
-      if (response.ok) {
-        const status = await response.json();
-        setAgentZeroStatus(status);
-      }
-    } catch (error) {
-      console.error('Failed to fetch Agent Zero status:', error);
-    }
+    // Status will be received via WebSocket, no need for separate API call
+    console.log('Agent Zero status will be received via WebSocket');
   };
 
   const loadInvoices = async () => {
@@ -343,41 +635,231 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
     }).format(amount);
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { text: string; className: string }> = {
-      'pending': { text: 'Pending', className: 'bg-blue-100 text-blue-700' },
-      'pending_review': { text: 'Exception', className: 'bg-amber-100 text-amber-700' },
-      'pending_approval': { text: 'Pending', className: 'bg-blue-100 text-blue-700' },
-      'approved': { text: 'Approved', className: 'bg-green-100 text-green-700' },
-      'processed': { text: 'Processed', className: 'bg-gray-100 text-gray-700' }
+  // Track completion state for brief success flash
+  const [showCompletion, setShowCompletion] = useState(false);
+
+  // Dynamic Agent System Status - memoized to prevent unnecessary recalculations
+  const agentSystemStatus = useMemo(() => {
+    const workingAgents = Object.values(agentStatuses).filter(s => s?.status === 'working').length;
+    const completedAgents = Object.values(agentStatuses).filter(s => s?.currentTask === 'Completed').length;
+    const isProcessing = currentProcessing !== null;
+    
+    // Show completion state briefly
+    if (showCompletion) {
+      return {
+        text: 'Invoice processed',
+        style: 'completed',
+        animation: 'shiny-green',
+        color: 'text-green-500'
+      };
+    }
+    
+    // Simplified processing states - just show "Agents processing..." for any active work
+    if (isProcessing || workingAgents > 0 || completedAgents > 0) {
+      return {
+        text: 'Agents processing...',
+        style: 'processing',
+        animation: 'shiny',
+        color: 'text-blue-400'
+      };
+    } else {
+      return {
+        text: '4 agents ready...',
+        style: 'ready',
+        animation: 'none',
+        color: 'text-green-500'
+      };
+    }
+  }, [agentStatuses, currentProcessing, showCompletion]);
+
+  // Memoized calculations for exception and approval counts
+  const exceptionCount = useMemo(() => {
+    return invoices.filter(i => 
+      i.status === 'pending_review' || 
+      i.status === 'requires_review' ||
+      i.status === 'exception' ||
+      i.status === 'pending_internal_review' || // Include AI internal queries
+      (i.hasIssues && i.status !== 'approved' && i.status !== 'processed')
+    ).length;
+  }, [invoices]);
+
+  const exceptionsByType = useMemo(() => {
+    const exceptions = invoices.filter(i => 
+      i.status === 'pending_review' || 
+      i.status === 'requires_review' ||
+      i.status === 'exception' ||
+      i.status === 'pending_internal_review' || // Include AI internal queries
+      (i.hasIssues && i.status !== 'approved' && i.status !== 'processed')
+    );
+    
+    // For demo purposes, simulate AI vs Human resolution
+    // In real implementation, this would be based on actual resolution data
+    const aiHandled = exceptions.filter(inv => {
+      // AI typically handles: duplicate detection, format issues, validation errors, internal queries
+      return inv.scenario === 'duplicate' || 
+             inv.scenario === 'poor_quality' ||
+             inv.scenario === 'missing_po' || // AI handles PO queries
+             inv.status === 'pending_internal_review' || // AI internal queries
+             (inv.agentConfidence && inv.agentConfidence > 0.7);
+    }).length;
+    
+    const humanHandled = exceptions.length - aiHandled;
+    
+    return {
+      total: exceptions.length,
+      ai: aiHandled,
+      human: humanHandled
     };
+  }, [invoices]);
+
+  const approvalCount = useMemo(() => {
+    return invoices.filter(i => i.status === 'pending_approval').length;
+  }, [invoices]);
+
+  const urgentApprovals = useMemo(() => {
+    return invoices.filter(i => {
+      if (i.status !== 'pending_approval') return false;
+      const dueDate = new Date(i.dueDate);
+      const today = new Date();
+      const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntilDue <= 3;
+    }).length;
+  }, [invoices]);
+
+  // Memoized calculations for metrics
+  const pendingInvoices = useMemo(() => {
+    return invoices.filter(inv => 
+      inv.status === 'pending' || 
+      (inv.status === 'pending_approval' && !inv.agentProcessingCompleted)
+    );
+  }, [invoices]);
+
+  const processedInvoices = useMemo(() => {
+    return invoices.filter(inv => inv.agentConfidence && inv.agentConfidence > 0);
+  }, [invoices]);
+
+  const automationRate = useMemo(() => {
+    const automatedInvoices = invoices.filter(inv => 
+      inv.agentConfidence && inv.agentConfidence > 0.8 && 
+      (inv.workflowRoute === 'auto_approve' || inv.agentConfidence > 0.9)
+    );
+    return processedInvoices.length > 0 
+      ? Math.round((automatedInvoices.length / processedInvoices.length) * 100)
+      : 0;
+  }, [invoices, processedInvoices]);
+
+  const processedToday = useMemo(() => {
+    return invoices.filter(inv => {
+      if (!inv.agentProcessingCompleted) return false;
+      const today = new Date().toDateString();
+      const processed = new Date(inv.agentProcessingCompleted).toDateString();
+      return today === processed;
+    });
+  }, [invoices]);
+
+  const todayValue = useMemo(() => {
+    return processedToday.reduce((sum, inv) => sum + inv.amount, 0);
+  }, [processedToday]);
+
+  const totalValue = useMemo(() => {
+    return invoices.reduce((sum, inv) => sum + inv.amount, 0);
+  }, [invoices]);
+
+  const getProcessStatusBadge = (invoice: Invoice) => {
+    // Determine the actual process status based on invoice state
+    let processStatus = '';
+    let statusClass = '';
     
-    const config = statusConfig[status] || { text: status, className: 'bg-gray-100 text-gray-700' };
     
+    // Check if agent processing appears stuck (started more than 2 minutes ago without completion)
+    const processingStartTime = invoice.agentProcessingStarted ? new Date(invoice.agentProcessingStarted).getTime() : 0;
+    const isProcessingStuck = processingStartTime > 0 && 
+                              !invoice.agentProcessingCompleted && 
+                              (Date.now() - processingStartTime) > 2 * 60 * 1000; // 2 minutes
+    
+    // If agent is currently processing (but not stuck)
+    if (invoice.agentProcessingStarted && !invoice.agentProcessingCompleted && !isProcessingStuck) {
+      processStatus = 'Processing';
+      statusClass = 'bg-blue-100 text-blue-700';
+    }
+    // If AI is querying internal team
+    else if (invoice.status === 'pending_internal_review') {
+      processStatus = 'Internal Query';
+      statusClass = 'bg-blue-100 text-blue-700';
+    }
+    // If there are exceptions/issues to resolve
+    else if (invoice.status === 'requires_review' || invoice.status === 'pending_review' || invoice.hasIssues) {
+      processStatus = 'Exception';
+      statusClass = 'bg-orange-100 text-orange-700';
+    }
+    // If waiting for manager approval
+    else if (invoice.status === 'pending_approval' && invoice.assignedTo === 'manager') {
+      processStatus = 'In Approval';
+      statusClass = 'bg-yellow-100 text-yellow-700';
+    }
+    // If waiting for executive approval
+    else if (invoice.status === 'pending_approval' && invoice.assignedTo === 'executive-team') {
+      processStatus = 'In Approval';
+      statusClass = 'bg-purple-100 text-purple-700';
+    }
+    // If approved and ready for payment
+    else if (invoice.status === 'approved' || (invoice.approvalStatus === 'approved' && invoice.status !== 'paid')) {
+      processStatus = 'Ready';
+      statusClass = 'bg-green-100 text-green-700';
+    }
+    // If paid/completed
+    else if (invoice.status === 'paid' || invoice.status === 'processed') {
+      processStatus = 'Paid';
+      statusClass = 'bg-gray-100 text-gray-700';
+    }
+    // Fallback for other pending states
+    else if (invoice.status === 'pending' || invoice.status === 'pending_approval') {
+      processStatus = 'Processing';
+      statusClass = 'bg-blue-100 text-blue-700';
+    }
+    // Default fallback
+    else {
+      processStatus = invoice.status;
+      statusClass = 'bg-gray-100 text-gray-700';
+    }
+    
+    // Get tooltip text for detailed explanation
+    const getTooltipText = () => {
+      switch (processStatus) {
+        case 'Processing':
+          return 'AI is currently analyzing and processing this invoice';
+        case 'Internal Query':
+          return 'AI sent query to procurement team about missing PO reference and is awaiting response';
+        case 'Exception':
+          return 'Invoice has exceptions or issues that need to be resolved before approval';
+        case 'In Approval':
+          if (invoice.assignedTo === 'manager') {
+            return 'Waiting for manager approval';
+          } else if (invoice.assignedTo === 'executive-team') {
+            return 'Waiting for executive approval due to high value or risk';
+          }
+          return 'Waiting for approval';
+        case 'Ready':
+          return 'Invoice approved and ready for payment processing';
+        case 'Paid':
+          return 'Invoice has been processed and paid';
+        default:
+          return processStatus;
+      }
+    };
+
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.className}`}>
-        {status === 'pending' && <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5"></span>}
-        {status === 'pending_review' && <span className="text-amber-600 mr-1">⚠</span>}
-        {config.text}
+      <span 
+        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusClass} cursor-help`}
+        title={getTooltipText()}
+      >
+        {processStatus === 'Processing' && <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>}
+        {processStatus === 'Exception' && <span className="text-orange-600 mr-1">⚠</span>}
+        {processStatus}
       </span>
     );
   };
 
-  const getApprovalStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { text: string; className: string }> = {
-      'pending': { text: 'Pending', className: 'bg-yellow-100 text-yellow-700' },
-      'approved': { text: 'Approved', className: 'bg-green-100 text-green-700' },
-      'rejected': { text: 'Rejected', className: 'bg-red-100 text-red-700' }
-    };
-    
-    const config = statusConfig[status] || { text: status, className: 'bg-gray-100 text-gray-700' };
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.className}`}>
-        {config.text}
-      </span>
-    );
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -993,30 +1475,52 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 <span className="text-xs font-medium text-slate-300">Recent Activity</span>
               </div>
               <div className="flex-1 overflow-y-auto space-y-2" style={{ maxHeight: '240px' }}>
-                {agentZeroActivity.slice(0, 12).map((activity, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/40"
-                  >
-                    <div className="flex-shrink-0">
-                      {activity.type.includes('completed') ? (
-                        <CheckCircle size={12} className="text-green-400" />
-                      ) : activity.type.includes('error') ? (
-                        <AlertCircle size={12} className="text-red-400" />
-                      ) : (
-                        <Activity size={12} className="text-blue-400" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-white truncate">
-                        {activity.type.replace('agent_zero_', '').replace('_', ' ')}
+                {agentZeroActivity.slice(0, 12).map((activity, index) => {
+                  const getCategoryColor = (category: string) => {
+                    switch (category) {
+                      case 'planning': return 'text-purple-400';
+                      case 'execution': return 'text-blue-400';
+                      case 'completion': return 'text-green-400';
+                      case 'system': return 'text-gray-400';
+                      default: return 'text-blue-400';
+                    }
+                  };
+
+                  const getCategoryIcon = (type: string, category: string) => {
+                    if (activity.icon) return null; // Use emoji if available
+                    
+                    if (type.includes('completed')) {
+                      return <CheckCircle size={12} className="text-green-400" />;
+                    } else if (type.includes('error')) {
+                      return <AlertCircle size={12} className="text-red-400" />;
+                    } else {
+                      return <Activity size={12} className={getCategoryColor(category)} />;
+                    }
+                  };
+
+                  return (
+                    <div 
+                      key={index}
+                      className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/40"
+                    >
+                      <div className="flex-shrink-0">
+                        {activity.icon ? (
+                          <span className="text-xs">{activity.icon}</span>
+                        ) : (
+                          getCategoryIcon(activity.type, activity.category || 'system')
+                        )}
                       </div>
-                      <div className="text-xs text-slate-500">
-                        {activity.timestamp.toLocaleTimeString()}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-white truncate">
+                          {activity.message || activity.type.replace('agent_zero_', '').replace('_', ' ')}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {activity.timestamp.toLocaleTimeString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {agentZeroActivity.length === 0 && (
                   <div className="text-xs text-slate-500 text-center py-4">
                     No recent activity
@@ -1073,65 +1577,90 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             <div className="flex items-center gap-2 ml-4">
               {/* Agent Status (original pill) */}
               <div 
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600"
+                className="inline-flex items-center gap-2 text-xs font-medium text-gray-600 transition-all duration-200 hover:shadow-sm cursor-default"
                 style={{
-                  padding: '4px 10px',
+                  width: '160px',
+                  padding: '4px 12px',
                   background: 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)',
                   borderRadius: '16px',
                   border: '1px solid rgba(0, 0, 0, 0.04)'
                 }}
+                title="Agent Zero System Status"
               >
                 {(() => {
-                  const activeAgentCount = Object.values(agentStatuses).filter(status => status?.status === 'working').length;
+                  const systemStatus = agentSystemStatus;
                   const isProcessing = currentProcessing !== null;
+                  
+                  // Dynamic dot color based on status
+                  const getDotColor = () => {
+                    if (systemStatus.style === 'completed') return 'bg-green-400';
+                    if (systemStatus.style === 'processing') return 'bg-purple-500';
+                    if (systemStatus.style === 'ready') return 'bg-green-500';
+                    return 'bg-purple-500';
+                  };
+
+                  const getDotShadow = () => {
+                    if (systemStatus.style === 'completed') return '0 0 0 4px rgba(34, 197, 94, 0.4)';
+                    if (systemStatus.style === 'processing') return '0 0 0 3px rgba(168, 85, 247, 0.3)';
+                    if (isProcessing) return '0 0 0 3px rgba(168, 85, 247, 0.3)';
+                    return '0 0 0 2px rgba(16, 185, 129, 0.1)';
+                  };
                   
                   return (
                     <>
                       <div 
-                        className={`w-1.5 h-1.5 bg-green-500 rounded-full ${isProcessing ? 'animate-pulse' : ''}`}
+                        className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${getDotColor()} ${
+                          systemStatus.animation === 'fade-in' ? 'animate-fade-in' :
+                          systemStatus.animation === 'shiny' ? 'animate-pulse' : 
+                          systemStatus.animation === 'pulse' ? 'animate-pulse' :
+                          systemStatus.animation === 'none' ? '' : ''
+                        }`}
                         style={{
-                          boxShadow: isProcessing 
-                            ? '0 0 0 3px rgba(16, 185, 129, 0.2)' 
-                            : '0 0 0 2px rgba(16, 185, 129, 0.1)',
-                          animationDuration: isProcessing ? '1s' : 'none'
+                          boxShadow: getDotShadow(),
+                          animationDuration: systemStatus.animation === 'fade-in' ? '0.8s' :
+                                           isProcessing ? '1.5s' : '2s'
                         }}
                       />
-                      <span>
-                        {isProcessing 
-                          ? `Processing invoice...` 
-                          : `${activeAgentCount > 0 ? activeAgentCount : 4} agents ready`
-                        }
-                      </span>
+                      {systemStatus.animation === 'shiny' ? (
+                        <ShinyText className="font-medium" variant="purple">
+                          {systemStatus.text}
+                        </ShinyText>
+                      ) : systemStatus.animation === 'shiny-green' ? (
+                        <ShinyText className="font-medium" variant="green">
+                          {systemStatus.text}
+                        </ShinyText>
+                      ) : (
+                        <motion.span 
+                          className={`transition-colors duration-300 font-medium ${
+                            systemStatus.animation === 'fade-in' ? 'text-green-600' :
+                            systemStatus.animation === 'pulse' ? 'animate-pulse' :
+                            systemStatus.animation === 'none' ? '' : ''
+                          }`}
+                          initial={systemStatus.animation === 'fade-in' ? { opacity: 0 } : undefined}
+                          animate={systemStatus.animation === 'fade-in' ? { opacity: 1 } : undefined}
+                          transition={systemStatus.animation === 'fade-in' ? { duration: 0.8, ease: "easeOut" } : undefined}
+                        >
+                          {systemStatus.text}
+                        </motion.span>
+                      )}
                     </>
                   );
                 })()}
               </div>
               
+              {/* Subtle Separator - Only show if there are exceptions or approvals */}
+              {!pipelineExpanded && (exceptionCount > 0 || approvalCount > 0) && (
+                <div 
+                  className="w-px h-4 bg-gray-200"
+                  style={{ opacity: 0.6 }}
+                />
+              )}
+              
               {/* Exception & Approval Indicators - Only when collapsed */}
               {!pipelineExpanded && (
                 <>
-                  {(() => {
-                    const exceptionCount = invoices.filter(i => 
-                      i.status === 'pending_review' || 
-                      i.status === 'requires_review' ||
-                      i.status === 'exception' ||
-                      (i.hasIssues && i.status !== 'approved' && i.status !== 'processed')
-                    ).length;
-                    
-                    const approvalCount = invoices.filter(i => i.status === 'pending_approval').length;
-                    
-                    const urgentApprovals = invoices.filter(i => {
-                      if (i.status !== 'pending_approval') return false;
-                      const dueDate = new Date(i.dueDate);
-                      const today = new Date();
-                      const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                      return daysUntilDue <= 3;
-                    }).length;
-                    
-                    return (
-                      <>
-                        {/* Exceptions Indicator */}
-                        {exceptionCount > 0 && (
+                  {/* Exceptions Indicator */}
+                  {exceptionCount > 0 && (
                           <div 
                             className="flex items-center gap-1.5 px-2 py-1 rounded-full cursor-pointer transition-all duration-200 hover:scale-105"
                             style={{
@@ -1151,7 +1680,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                             >
                               <AlertCircle size={8} className="text-white" />
                             </div>
-                            <span className="text-xs font-medium text-red-700">{exceptionCount}</span>
+                            <span className="text-xs font-medium text-red-700">{exceptionCount} exceptions</span>
                           </div>
                         )}
                         
@@ -1180,7 +1709,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                             >
                               <CheckCircle size={8} className="text-white" />
                             </div>
-                            <span className="text-xs font-medium text-amber-700">{approvalCount}</span>
+                            <span className="text-xs font-medium text-amber-700">{approvalCount} approvals</span>
                             {urgentApprovals > 0 && (
                               <div 
                                 className="w-1 h-1 rounded-full animate-pulse"
@@ -1192,9 +1721,6 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                             )}
                           </div>
                         )}
-                      </>
-                    );
-                  })()}
                 </>
               )}
             </div>
@@ -1203,66 +1729,24 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           <div className="flex items-center gap-6">
             {/* Metrics - Always visible on the right */}
             <div className="text-right">
-              {(() => {
-                const pendingInvoices = invoices.filter(inv => 
-                  inv.status === 'pending' || 
-                  (inv.status === 'pending_approval' && !inv.agentProcessingCompleted)
-                );
-                const isProcessing = currentProcessing !== null;
-                
-                return (
-                  <>
-                    <div className="text-lg font-semibold text-gray-900">
-                      {isProcessing ? '1' : pendingInvoices.length}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {isProcessing ? 'Processing' : pendingInvoices.length === 0 ? 'Queue empty' : 'In queue'}
-                    </div>
-                  </>
-                );
-              })()}
+              <div className="text-lg font-semibold text-gray-900">
+                {currentProcessing !== null ? '1' : pendingInvoices.length}
+              </div>
+              <div className="text-xs text-gray-400">
+                {currentProcessing !== null ? 'Processing' : pendingInvoices.length === 0 ? 'Queue empty' : 'In queue'}
+              </div>
             </div>
             <div className="text-right">
-              {(() => {
-                const processedInvoices = invoices.filter(inv => inv.agentConfidence && inv.agentConfidence > 0);
-                const automatedInvoices = invoices.filter(inv => 
-                  inv.agentConfidence && inv.agentConfidence > 0.8 && 
-                  (inv.workflowRoute === 'auto_approve' || inv.agentConfidence > 0.9)
-                );
-                const automationRate = processedInvoices.length > 0 
-                  ? Math.round((automatedInvoices.length / processedInvoices.length) * 100)
-                  : 0; // Default when no processed invoices yet
-                
-                return (
-                  <>
-                    <div className="text-lg font-semibold text-gray-900">{automationRate}%</div>
-                    <div className="text-xs text-gray-400">Automated</div>
-                  </>
-                );
-              })()}
+              <div className="text-lg font-semibold text-gray-900">{automationRate}%</div>
+              <div className="text-xs text-gray-400">Automated</div>
             </div>
             <div className="text-right">
-              {(() => {
-                const totalValue = invoices.reduce((sum, inv) => sum + inv.amount, 0);
-                const processedToday = invoices.filter(inv => {
-                  if (!inv.agentProcessingCompleted) return false;
-                  const today = new Date().toDateString();
-                  const processed = new Date(inv.agentProcessingCompleted).toDateString();
-                  return today === processed;
-                });
-                const todayValue = processedToday.reduce((sum, inv) => sum + inv.amount, 0);
-                
-                return (
-                  <>
-                    <div className="text-lg font-semibold text-gray-900">
-                      ${todayValue > 0 ? (todayValue / 1000).toFixed(0) : (totalValue / 1000).toFixed(0)}K
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {todayValue > 0 ? 'Processed today' : 'Pipeline value'}
-                    </div>
-                  </>
-                );
-              })()}
+              <div className="text-lg font-semibold text-gray-900">
+                ${todayValue > 0 ? (todayValue / 1000).toFixed(0) : (totalValue / 1000).toFixed(0)}K
+              </div>
+              <div className="text-xs text-gray-400">
+                {todayValue > 0 ? 'Processed today' : 'Pipeline value'}
+              </div>
             </div>
             
             <div
@@ -1395,11 +1879,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               </div>
             </div>
             <div className="text-lg font-bold text-gray-900">
-              {(() => {
-                const processingCount = currentProcessing ? 1 : 0;
-                const processedInvoices = invoices.filter(inv => inv.agentProcessingCompleted);
-                return processingCount > 0 ? processingCount : processedInvoices.length;
-              })()}
+              {currentProcessing ? 1 : pendingInvoices.length}
             </div>
             <div className="text-xs text-gray-600 font-medium">
               {(() => {
@@ -1476,27 +1956,11 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 AI
               </div>
             </div>
-            <div className="text-lg font-bold text-red-600">
-              {(() => {
-                const reviewInvoices = invoices.filter(i => 
-                  i.status === 'pending_review' || 
-                  i.status === 'requires_review' ||
-                  i.status === 'exception' ||
-                  (i.hasIssues && i.status !== 'approved' && i.status !== 'processed')
-                );
-                return reviewInvoices.length;
-              })()}
-            </div>
-            <div className="text-xs text-red-600 font-medium">
-              {(() => {
-                const reviewCount = invoices.filter(i => 
-                  i.status === 'pending_review' || 
-                  i.status === 'requires_review' ||
-                  i.status === 'exception' ||
-                  (i.hasIssues && i.status !== 'approved' && i.status !== 'processed')
-                ).length;
-                return reviewCount === 0 ? 'All clear' : 'Need review';
-              })()}
+            <div className="text-lg font-bold text-red-600">{exceptionsByType.total}</div>
+            <div className="text-xs text-gray-500 font-normal mb-1">Currently with:</div>
+            <div className="flex items-center gap-3 text-xs font-medium">
+              <span className="text-red-600">AI: {exceptionsByType.ai}</span>
+              <span className="text-red-600">User: {exceptionsByType.human}</span>
             </div>
             <div className="absolute bottom-1 right-1 text-xs font-medium text-purple-600 opacity-0 hover:opacity-100 transition-opacity flex items-center gap-0.5">
               Review <ChevronRight size={8} />
@@ -1551,17 +2015,6 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           >
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Approval</div>
-              <div 
-                className="inline-flex items-center gap-1 text-xs font-semibold text-white"
-                style={{
-                  padding: '1px 6px',
-                  background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                  borderRadius: '8px',
-                  boxShadow: '0 1px 2px rgba(251, 191, 36, 0.2)'
-                }}
-              >
-                AI
-              </div>
             </div>
             <div className="text-lg font-bold text-amber-600">{invoices.filter(i => i.status === 'pending_approval').length}</div>
             <div className="text-xs text-amber-600 font-medium">
@@ -1632,17 +2085,6 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           >
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Payment Ready</div>
-              <div 
-                className="inline-flex items-center gap-1 text-xs font-semibold text-white"
-                style={{
-                  padding: '1px 6px',
-                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                  borderRadius: '8px',
-                  boxShadow: '0 1px 2px rgba(34, 197, 94, 0.2)'
-                }}
-              >
-                AI
-              </div>
             </div>
             <div className="text-lg font-bold text-green-600">{invoices.filter(i => i.status === 'approved' || i.status === 'processed').length}</div>
             <div className="text-xs text-gray-600 font-medium">${(invoices.filter(i => i.status === 'approved' || i.status === 'processed').reduce((sum, inv) => sum + inv.amount, 0) / 1000).toFixed(0)}K total</div>
@@ -1680,7 +2122,6 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
                 <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">PO Number</th>
                 <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Approval</th>
                 <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
                 <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Days to Due</th>
                 <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
@@ -1702,23 +2143,23 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                     }}
                   >
                     <td className="py-3 px-4">
-                      <div className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</div>
+                      <div className="text-xs font-medium text-gray-900">{invoice.invoiceNumber}</div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
-                          <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-5 h-5 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+                          <svg className="w-2.5 h-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                           </svg>
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-900 truncate">{invoice.vendor.name}</div>
+                          <div className="text-xs font-medium text-gray-900 truncate">{invoice.vendor.name}</div>
                           <div className="text-xs text-gray-500 truncate">{invoice.vendor.category}</div>
                         </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-sm font-semibold text-gray-900 text-right">{formatCurrency(invoice.amount)}</div>
+                      <div className="text-xs font-semibold text-gray-900 text-right">{formatCurrency(invoice.amount)}</div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-xs text-gray-600">{formatDate(invoice.invoiceDate)}</div>
@@ -1732,10 +2173,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      {getStatusBadge(invoice.status)}
-                    </td>
-                    <td className="py-3 px-4">
-                      {getApprovalStatusBadge(invoice.approvalStatus)}
+                      {getProcessStatusBadge(invoice)}
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-xs text-gray-600 truncate">
@@ -1764,7 +2202,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                         </div>
                         <div className="flex items-center space-x-1 text-xs">
                           {aiAnalysis.scenario && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-100 text-blue-800">
                               {aiAnalysis.scenario}
                             </span>
                           )}

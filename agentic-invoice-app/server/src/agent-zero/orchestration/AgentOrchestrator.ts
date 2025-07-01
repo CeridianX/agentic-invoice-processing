@@ -61,6 +61,15 @@ export class AgentOrchestrator extends EventEmitter {
       // Step 1: Get orchestration plan from Coordinator
       this.emit('processing_started', { invoiceId, sessionId });
       
+      // Emit coordinator started event
+      this.emit('coordinator_started', { 
+        invoiceId, 
+        sessionId,
+        agentName: 'CoordinatorAgent',
+        action: 'Creating orchestration plan',
+        timestamp: new Date()
+      });
+      
       const coordinatorAgent = this.agents.get('CoordinatorAgent');
       const plan = await coordinatorAgent.execute(
         `Create an orchestration plan for processing invoice: ${JSON.stringify(invoiceData)}`,
@@ -69,6 +78,17 @@ export class AgentOrchestrator extends EventEmitter {
 
       this.activePlans.set(plan.id, plan);
       this.emit('plan_created', { plan });
+      
+      // Emit coordinator completed event
+      this.emit('coordinator_completed', { 
+        invoiceId, 
+        sessionId,
+        planId: plan.id,
+        agentName: 'CoordinatorAgent',
+        confidence: plan.confidence,
+        result: { planCreated: true, stepsCount: plan.steps.length },
+        timestamp: new Date()
+      });
 
       // Step 2: Execute the plan
       const result = await this.executePlan(plan, context);
@@ -79,7 +99,8 @@ export class AgentOrchestrator extends EventEmitter {
       return result;
     } catch (error) {
       console.error('Invoice processing error:', error);
-      this.emit('processing_error', { invoiceId, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.emit('processing_error', { invoiceId, error: errorMessage });
       throw error;
     }
   }
@@ -128,15 +149,16 @@ export class AgentOrchestrator extends EventEmitter {
 
       } catch (error) {
         console.error(`Step ${step.id} failed:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         step.status = 'failed';
-        step.output = { error: error.message };
+        step.output = { error: errorMessage };
         
-        this.emit('step_failed', { planId: plan.id, stepId: step.id, error: error.message });
+        this.emit('step_failed', { planId: plan.id, stepId: step.id, error: errorMessage });
 
         // Attempt recovery or escalation
         const recoveryResult = await this.attemptRecovery(step, error, context);
         if (!recoveryResult.success) {
-          throw new Error(`Failed to recover from step failure: ${error.message}`);
+          throw new Error(`Failed to recover from step failure: ${errorMessage}`);
         }
       }
     }
@@ -149,13 +171,13 @@ export class AgentOrchestrator extends EventEmitter {
       invoiceId: context.invoiceId!,
       extractedData,
       validation: {
-        isValid: validationResult.isValid !== false,
+        isValid: validationResult.isValid === true,
         issues: validationResult.issues || [],
         confidence: validationResult.confidence || 0.8
       },
       workflow: {
         recommendedActions: workflowResult.nextSteps || [],
-        approvalRequired: workflowResult.workflowType !== 'auto_approve',
+        approvalRequired: workflowResult.approvalRequired || (workflowResult.route !== 'auto_approve'),
         priority: workflowResult.priority || 'medium'
       },
       agentInsights: {
@@ -214,7 +236,8 @@ export class AgentOrchestrator extends EventEmitter {
           });
         }
       } catch (dbError) {
-        console.warn('Failed to store agent activity:', dbError.message);
+        const dbErrorMessage = dbError instanceof Error ? dbError.message : 'Unknown database error';
+        console.warn('Failed to store agent activity:', dbErrorMessage);
         // Continue execution even if database storage fails
       }
 
@@ -247,21 +270,108 @@ export class AgentOrchestrator extends EventEmitter {
         };
         
       case 'ValidationAgent':
+        // Enhanced scenario-based validation
+        const validationScenario = invoice?.scenario || 'simple';
+        const validationAmount = invoice?.amount || 1000;
+        const validationHasIssues = invoice?.hasIssues || false;
+        
+        
+        // Scenario-specific validation results
+        if (validationScenario === 'duplicate') {
+          return {
+            isValid: false,
+            validationScore: 0.65,
+            issues: ['Duplicate invoice number detected', 'Similar invoice found within 30 days'],
+            confidence: 0.85,
+            recommendation: 'Requires manual review - potential duplicate'
+          };
+        }
+        
+        if (validationScenario === 'poor_quality' || validationHasIssues) {
+          return {
+            isValid: false,
+            validationScore: 0.72,
+            issues: ['Document quality poor', 'OCR confidence low', 'Some fields unclear'],
+            confidence: 0.78,
+            recommendation: 'Requires enhanced processing'
+          };
+        }
+        
+        if (validationScenario === 'exceptional' && validationAmount > 20000) {
+          return {
+            isValid: true,
+            validationScore: 0.88,
+            issues: ['High-value transaction', 'Requires additional verification'],
+            confidence: 0.88,
+            recommendation: 'Valid but requires executive approval'
+          };
+        }
+        
+        // Normal validation for simple/complex/learning scenarios
         return {
           isValid: true,
-          validationScore: 0.92,
+          validationScore: validationScenario === 'simple' ? 0.95 : 0.88,
           issues: [],
-          confidence: 0.92,
+          confidence: validationScenario === 'simple' ? 0.95 : 0.88,
           recommendation: 'Approved for processing'
         };
         
       case 'WorkflowAgent':
+        // Enhanced scenario-based workflow routing
+        const workflowAmount = invoice?.amount || 1000;
+        const workflowHasIssues = invoice?.hasIssues || false;
+        const workflowScenario = invoice?.scenario || 'simple';
+        const vendorTrust = invoice?.vendor?.trustLevel || 'medium';
+        
+        // Scenario-specific routing logic
+        if (workflowScenario === 'duplicate') {
+          return {
+            route: 'manual_review',
+            approvalRequired: true,
+            assignedTo: 'fraud_team',
+            confidence: 0.95,
+            reasoning: 'Duplicate invoice detected - requires manual review'
+          };
+        }
+        
+        if (workflowHasIssues || workflowScenario === 'poor_quality') {
+          return {
+            route: 'enhanced_review',
+            approvalRequired: true,
+            assignedTo: 'processing_team',
+            confidence: 0.85,
+            reasoning: 'Document quality issues - requires enhanced processing'
+          };
+        }
+        
+        // Amount-based routing with vendor trust consideration
+        if (workflowAmount > 10000 || workflowScenario === 'exceptional') {
+          return {
+            route: 'executive_approval',
+            approvalRequired: true,
+            assignedTo: 'executive_team',
+            confidence: 0.92,
+            reasoning: 'High-value invoice requires executive approval'
+          };
+        }
+        
+        if (workflowAmount > 1000 || (workflowAmount > 500 && vendorTrust !== 'high')) {
+          return {
+            route: 'manager_approval',
+            approvalRequired: true,
+            assignedTo: 'manager',
+            confidence: 0.88,
+            reasoning: 'Amount or vendor risk requires manager approval'
+          };
+        }
+        
+        // Auto-approve for small amounts from trusted vendors
         return {
-          route: invoice?.amount > 5000 ? 'manager_approval' : 'auto_approve',
-          approvalRequired: invoice?.amount > 5000,
-          assignedTo: invoice?.amount > 10000 ? 'executive_team' : 'finance_team',
-          confidence: 0.88,
-          reasoning: 'Standard workflow routing based on amount thresholds'
+          route: 'auto_approve',
+          approvalRequired: false,
+          assignedTo: 'system',
+          confidence: 0.95,
+          reasoning: 'Small amount from trusted vendor - auto-approved'
         };
         
       default:

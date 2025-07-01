@@ -86,10 +86,42 @@ You should:
   private determineWorkflow(invoice: any, validationResult: any) {
     const amount = invoice?.amount || 0;
     const vendor = invoice?.vendor;
+    const scenario = invoice?.scenario || 'simple';
+    const vendorTrust = vendor?.trustLevel || 'medium';
     const riskLevel = validationResult?.riskLevel || 'LOW';
     const hasIssues = validationResult?.issues?.length > 0;
 
-    // Use BusinessRuleEngine to evaluate rules
+    console.log(`WorkflowAgent: Processing ${scenario} scenario, amount: ${amount}, vendor trust: ${vendorTrust}, has issues: ${hasIssues}`);
+
+    // Scenario-specific workflow routing
+    if (scenario === 'duplicate') {
+      return {
+        workflow: 'manual_review',
+        reasoning: 'Duplicate invoice detected - requires manual review',
+        appliedRules: [{ name: 'DuplicateDetection', description: 'Route duplicates to fraud team' }],
+        nextSteps: ['Route to fraud team', 'Investigate potential duplicate']
+      };
+    }
+
+    if (scenario === 'poor_quality' || hasIssues) {
+      return {
+        workflow: 'enhanced_review',
+        reasoning: 'Document quality issues - requires enhanced processing',
+        appliedRules: [{ name: 'QualityCheck', description: 'Enhanced review for poor quality documents' }],
+        nextSteps: ['Route to processing team', 'Enhance document quality']
+      };
+    }
+
+    if (scenario === 'exceptional' && amount > 20000) {
+      return {
+        workflow: 'executive_approval',
+        reasoning: 'High-value exceptional invoice requires executive approval',
+        appliedRules: [{ name: 'ExecutiveApproval', description: 'Executive approval for high-value exceptional invoices' }],
+        nextSteps: ['Route to executive team', 'Executive review required']
+      };
+    }
+
+    // Use BusinessRuleEngine for standard scenarios
     const evaluation = this.ruleEngine.evaluateRules({
       amount,
       vendor,
@@ -127,8 +159,15 @@ You should:
       nextSteps.push('Verify vendor credentials');
     }
 
+    // Scenario-specific adjustments for simple invoices
+    if (scenario === 'simple' && vendorTrust === 'high' && amount < 1000 && !hasIssues) {
+      workflow = 'auto_approve';
+      reasoning = 'Simple invoice from trusted vendor - auto-approved';
+      nextSteps = ['Process payment automatically'];
+    }
+
     // Override based on validation issues
-    if (hasIssues) {
+    if (hasIssues && scenario !== 'simple') {
       workflow = 'manual_review';
       reasoning = 'Manual review required due to validation issues';
       nextSteps.unshift('Resolve validation issues');
@@ -174,13 +213,19 @@ You should:
   private async routeWorkflow(context: AgentContext): Promise<any> {
     const invoiceId = context?.invoiceId;
     const invoice = context?.metadata?.invoice;
-    const validationResult = context?.metadata?.validationResult;
+    const validationResult = context?.metadata?.validationResult || context?.metadata?.previousResults?.validationResult;
     
     const workflowDecision = this.determineWorkflow(invoice, validationResult);
+    
+    // Map workflow types to approval requirements for the orchestrator
+    const approvalRequired = workflowDecision.workflow !== 'auto_approve';
+    const route = workflowDecision.workflow;
     
     return {
       invoiceId,
       workflowType: workflowDecision.workflow,
+      route: route,
+      approvalRequired: approvalRequired,
       reasoning: workflowDecision.reasoning,
       appliedRules: workflowDecision.appliedRules,
       nextSteps: workflowDecision.nextSteps,

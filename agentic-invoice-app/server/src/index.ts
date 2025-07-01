@@ -10,8 +10,8 @@ import vendorRoutes from './routes/vendors';
 import purchaseOrderRoutes from './routes/purchaseOrders';
 import agentRoutes from './routes/agents';
 import dashboardRoutes from './routes/dashboard';
-import businessRulesRoutes from './routes/businessRules';
 import demoRoutes from './routes/demo';
+import businessRulesRoutes from './routes/businessRules';
 
 // Import Agent Zero
 import { AgentZeroService } from './agent-zero/AgentZeroService';
@@ -35,6 +35,20 @@ setTimeout(async () => {
     (global as any).agentZeroInstance = agentZero;
     setupAgentZeroListeners(); // Setup WebSocket listeners
     console.log('Agent Zero instance created, initialized, and listeners setup');
+    
+    // Broadcast initialization complete to all connected clients
+    if (agentZero.isInitialized && agentZero.isInitialized()) {
+      try {
+        const agentStatus = await agentZero.getAgentStatus();
+        broadcastToClients({
+          type: 'agent_zero_status',
+          data: agentStatus
+        });
+        console.log('Broadcasted Agent Zero ready status to all clients');
+      } catch (error) {
+        console.error('Error broadcasting initial agent status:', error);
+      }
+    }
   } catch (error) {
     console.error('Failed to create Agent Zero instance:', error);
   }
@@ -59,15 +73,15 @@ app.use('/api/vendors', vendorRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/business-rules', businessRulesRoutes);
 app.use('/api/demo', demoRoutes);
+app.use('/api/business-rules', businessRulesRoutes);
 
 // WebSocket connection for real-time Agent Zero updates
 wss.on('connection', async (ws) => {
   console.log('Client connected');
 
   // Send initial Agent Zero status if available
-  if (agentZero) {
+  if (agentZero && agentZero.isInitialized && agentZero.isInitialized()) {
     try {
       const agentStatus = await agentZero.getAgentStatus();
       ws.send(JSON.stringify({
@@ -77,10 +91,28 @@ wss.on('connection', async (ws) => {
     } catch (error) {
       console.error('Error getting agent status:', error);
     }
+  } else {
+    // Send a default status indicating Agent Zero is initializing
+    ws.send(JSON.stringify({
+      type: 'agent_zero_status',
+      data: {
+        status: 'initializing',
+        agents: {
+          'CoordinatorAgent': { status: 'initializing', currentTask: 'Starting up...', confidence: 0 },
+          'DocumentProcessorAgent': { status: 'initializing', currentTask: 'Starting up...', confidence: 0 },
+          'ValidationAgent': { status: 'initializing', currentTask: 'Starting up...', confidence: 0 },
+          'WorkflowAgent': { status: 'initializing', currentTask: 'Starting up...', confidence: 0 }
+        }
+      }
+    }));
   }
 
   ws.on('close', () => {
     console.log('Client disconnected');
+  });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
   });
 });
 
@@ -98,6 +130,20 @@ function setupAgentZeroListeners() {
   agentZero.on('plan_created', (data) => {
     broadcastToClients({
       type: 'agent_zero_plan_created',
+      data
+    });
+  });
+
+  agentZero.on('coordinator_started', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_coordinator_started',
+      data
+    });
+  });
+
+  agentZero.on('coordinator_completed', (data) => {
+    broadcastToClients({
+      type: 'agent_zero_coordinator_completed',
       data
     });
   });
@@ -162,9 +208,15 @@ function setupAgentZeroListeners() {
 
 function broadcastToClients(message: any) {
   const clients = Array.from(wss.clients);
-  clients.forEach((client) => {
-    if (client.readyState === 1) { // WebSocket.OPEN
+  const openClients = clients.filter(client => client.readyState === 1);
+  
+  console.log(`📡 Broadcasting ${message.type} to ${openClients.length} connected clients`);
+  
+  openClients.forEach((client) => {
+    try {
       client.send(JSON.stringify(message));
+    } catch (error) {
+      console.error('Error sending WebSocket message to client:', error);
     }
   });
 }

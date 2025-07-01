@@ -55,6 +55,12 @@ interface Invoice {
   lineItems?: InvoiceLineItem[];
   exceptions?: Exception[];
   agentActivities?: AgentActivity[];
+  agentReasoning?: string;
+  agentConfidence?: number;
+  workflowRoute?: string;
+  scenario?: string;
+  notes?: string;
+  agentProcessingStarted?: string;
 }
 
 interface InvoiceDetailProps {
@@ -266,6 +272,117 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI Communication - for missing PO scenarios */}
+          {currentInvoice.status === 'pending_internal_review' && currentInvoice.scenario === 'missing_po' && (
+            <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">AI Communication</h2>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  Awaiting Response
+                </span>
+              </div>
+              
+              <div className="space-y-4">
+                {/* AI Analysis */}
+                <div className="bg-white rounded-lg p-4 border border-purple-100">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">AI Detection</p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {currentInvoice.agentReasoning || 'Missing PO reference detected during validation'}
+                      </p>
+                      <div className="mt-2 flex items-center space-x-2">
+                        <div className="flex-1 bg-purple-100 rounded-full h-1.5">
+                          <div 
+                            className="bg-purple-500 h-1.5 rounded-full" 
+                            style={{ width: `${Math.round((currentInvoice.agentConfidence || 0.85) * 100)}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs font-medium text-gray-600">
+                          {Math.round((currentInvoice.agentConfidence || 0.85) * 100)}% confidence
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Query to Procurement */}
+                <div className="bg-white rounded-lg p-4 border border-purple-100">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">AI → Procurement Team</p>
+                        <span className="text-xs text-gray-500">
+                          {formatDate(currentInvoice.agentProcessingStarted || currentInvoice.receivedDate)}
+                        </span>
+                      </div>
+                      <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200">
+                        <p className="text-sm text-gray-800 font-medium">Subject: PO Reference Validation Required</p>
+                        <p className="text-sm text-gray-700 mt-2">
+                          Hi Procurement Team,<br/><br/>
+                          I'm processing invoice <strong>{currentInvoice.invoiceNumber}</strong> from <strong>{currentInvoice.vendor.name}</strong> 
+                          for <strong>{formatCurrency(currentInvoice.amount)}</strong>.<br/><br/>
+                          The invoice references PO "PO-2024-7839" which I cannot find in our system. Could you please:
+                        </p>
+                        <ul className="text-sm text-gray-700 mt-2 ml-4 list-disc">
+                          <li>Verify if this PO number is correct</li>
+                          <li>Provide the correct PO if there was a typo</li>
+                          <li>Confirm if this purchase was authorized without a PO</li>
+                        </ul>
+                        <p className="text-sm text-gray-700 mt-2">
+                          I'll hold the invoice for review until clarification is received.<br/><br/>
+                          Best regards,<br/>
+                          <strong>AI Invoice Processing System</strong>
+                        </p>
+                      </div>
+                      <div className="mt-2 flex items-center space-x-2 text-xs text-gray-500">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span>Sent to: procurement.team@company.com</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Update */}
+                <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">Current Status</p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        Awaiting response from procurement team. Invoice processing will resume once PO clarification is received.
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Expected response by: {formatDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString())}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

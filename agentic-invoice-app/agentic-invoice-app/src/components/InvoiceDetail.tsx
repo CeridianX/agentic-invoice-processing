@@ -211,7 +211,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                       // Set default step info if API call fails
                       setStepInfo({
                         currentStep: 0,
-                        maxSteps: 3,
+                        maxSteps: 4,
                         nextStepName: 'Waiting for procurement response',
                         canAdvance: true
                       });
@@ -221,7 +221,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                     // Set default step info if there's an error
                     setStepInfo({
                       currentStep: 0,
-                      maxSteps: 3,
+                      maxSteps: 4,
                       nextStepName: 'Waiting for procurement response',
                       canAdvance: true
                     });
@@ -256,7 +256,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
               // Set default step info if API call fails
               setStepInfo({
                 currentStep: 0,
-                maxSteps: 3,
+                maxSteps: 4,
                 nextStepName: 'Waiting for procurement response',
                 canAdvance: true
               });
@@ -266,7 +266,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
             // Set default step info if there's an error
             setStepInfo({
               currentStep: 0,
-              maxSteps: 3,
+              maxSteps: 4,
               nextStepName: 'Waiting for procurement response',
               canAdvance: true
             });
@@ -317,7 +317,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
             // Set default step info if API call fails
             setStepInfo({
               currentStep: 0,
-              maxSteps: 3,
+              maxSteps: 4,
               nextStepName: 'Waiting for procurement response',
               canAdvance: true
             });
@@ -327,7 +327,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
           // Set default step info if there's an error
           setStepInfo({
             currentStep: 0,
-            maxSteps: 3,
+            maxSteps: 4,
             nextStepName: 'Waiting for procurement response',
             canAdvance: true
           });
@@ -754,7 +754,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                           <p className="text-xs font-medium text-gray-900">
                             {message.from.includes('ai-invoice-system') 
                               ? 'AI Agent → Procurement Team' 
-                              : `${message.from.split('@')[0]} → AI Agent`
+                              : `Procurement Team → AI Agent`
                             }
                           </p>
                           <span className="text-xs text-gray-500">
@@ -766,7 +766,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                             Subject: {message.content.subject}
                           </p>
                           <div className="text-xs text-gray-700 mt-1 whitespace-pre-line leading-relaxed">
-                            {message.content.body}
+                            {message.content.body.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '')}
                           </div>
                           {message.content.actionItems && message.content.actionItems.length > 0 && (
                             <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
@@ -833,10 +833,28 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                           ? 'text-green-700'
                           : 'text-yellow-700'
                       }`}>
-                        {communicationData.conversation?.status === 'resolved'
-                          ? 'Communication resolved. Invoice processing can continue.'
-                          : 'Awaiting response from procurement team. Invoice processing will resume once clarification is received.'
-                        }
+                        {(() => {
+                          if (communicationData.conversation?.status === 'resolved') {
+                            return 'Communication resolved. Invoice processing can continue.';
+                          }
+                          
+                          const currentStep = stepInfo?.currentStep || 0;
+                          switch (currentStep) {
+                            case 0:
+                              return 'AI inquiry sent to procurement team. Awaiting response about missing PO reference.';
+                            case 1:
+                              return 'Procurement team responded with PO correction. AI is processing the update.';
+                            case 2:
+                              return 'AI has acknowledged the correction and updated the invoice record.';
+                            case 3:
+                              return 'AI is requesting final confirmation to complete the resolution.';
+                            case 4:
+                              return 'Awaiting final approval from procurement team to process payment.';
+                            default:
+                              return 'Awaiting response from procurement team. Invoice processing will resume once clarification is received.';
+                          }
+                        })()}
+                        
                       </p>
                       {communicationData.conversation?.expectedResponseBy && 
                        communicationData.conversation?.status !== 'resolved' && (

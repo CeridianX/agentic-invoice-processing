@@ -243,6 +243,28 @@ router.post('/advance/:conversationId', async (req, res) => {
       });
     }
 
+    // Check if conversation was resolved and update invoice status
+    const updatedConversation = emailService.getConversation(conversationId);
+    if (updatedConversation?.status === 'resolved') {
+      try {
+        const agentZero = (global as any).agentZeroInstance;
+        if (agentZero?.prisma && updatedConversation.relatedInvoiceId) {
+          await agentZero.prisma.invoice.update({
+            where: { id: updatedConversation.relatedInvoiceId },
+            data: {
+              status: 'approved_ready_for_payment',
+              assignedTo: null, // Unassign from AI agent
+              agentReasoning: 'PO reference issue resolved through communication with procurement team. Correct PO number (PO-2024-7738) confirmed and invoice approved for payment processing.',
+              workflowRoute: 'resolved_via_communication'
+            }
+          });
+          console.log(`✅ Invoice ${updatedConversation.relatedInvoiceId} status updated to ready for payment`);
+        }
+      } catch (updateError) {
+        console.error('Error updating invoice status after conversation resolution:', updateError);
+      }
+    }
+
     // Generate next message based on current step
     const nextStep = conversation.currentStep + 1;
     let newMessage;
@@ -334,19 +356,31 @@ async function generateStepMessage(
       
       Address the email to the AI Invoice System and reference the specific invoice and vendor mentioned in the original inquiry.`;
       break;
-    case 2: // AI agent follow-up
+    case 2: // AI agent acknowledgment and update confirmation
       responseMode = 'agent';
       customInstructions = `You are the AI Invoice System responding to the procurement team's clarification about the PO number correction.
       
       Thank them for providing the correct PO number (PO-2024-7738 instead of PO-2024-7839). 
       
-      Confirm that you will update the invoice record and proceed with processing. 
+      Confirm that you have successfully updated the invoice record with the correct PO reference and that all validation checks now pass.
       
-      Be professional and indicate that the invoice processing will now continue normally.`;
+      Be professional and indicate that the invoice is ready for final approval and processing.`;
       break;
-    case 3: // Final procurement confirmation
+    case 3: // AI requests final confirmation and resolution
+      responseMode = 'agent';
+      customInstructions = `You are the AI Invoice System sending a final confirmation request to the procurement team.
+      
+      Confirm that the invoice has been successfully updated with PO number "PO-2024-7738" and all issues have been resolved.
+      
+      Request final confirmation from the procurement team that the invoice can now be processed for payment.
+      
+      Be professional and indicate that once confirmed, the invoice will be moved to "Ready for Payment" status.`;
+      break;
+    case 4: // Final procurement confirmation
       responseMode = 'procurement';
-      customInstructions = `Provide a brief final confirmation as the procurement team that everything is now resolved and the invoice can be processed normally.
+      customInstructions = `Provide a brief final confirmation as the procurement team that everything is now resolved and the invoice can be processed for payment.
+      
+      Confirm that PO-2024-7738 is correct and authorized, and give approval to proceed with payment processing.
       
       Express appreciation for the AI system's efficiency in catching and resolving the PO discrepancy.`;
       break;

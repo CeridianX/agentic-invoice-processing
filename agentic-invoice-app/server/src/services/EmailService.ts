@@ -145,7 +145,7 @@ export class EmailService extends EventEmitter {
       lastActivity: new Date(),
       expectedResponseBy: context.deadline,
       currentStep: 0, // Start at step 0 (initial message)
-      maxSteps: 3, // 0=initial, 1=first_response, 2=follow_up, 3=resolution
+      maxSteps: 4, // 0=initial, 1=procurement_response, 2=ai_ack, 3=ai_final, 4=resolution
       isInteractive: isInteractive
     };
 
@@ -332,6 +332,14 @@ Accounts Payable Team`,
       // Mark as resolved if we've reached the final step
       if (conversation.currentStep >= conversation.maxSteps) {
         conversation.status = 'resolved';
+        
+        // Emit event for invoice status update
+        this.emit('conversation_resolved', {
+          conversationId,
+          invoiceId: conversation.relatedInvoiceId,
+          scenario: conversation.scenario,
+          timestamp: new Date()
+        });
       }
       
       this.conversations.set(conversationId, conversation);
@@ -362,7 +370,9 @@ Accounts Payable Team`,
     const stepNames = [
       'Initial inquiry sent',
       'Waiting for procurement response',
-      'Waiting for AI follow-up',
+      'Waiting for AI acknowledgment',
+      'Waiting for AI final confirmation',
+      'Waiting for final approval',
       'Conversation resolved'
     ];
 

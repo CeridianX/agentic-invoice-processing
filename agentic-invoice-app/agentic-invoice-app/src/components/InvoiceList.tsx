@@ -54,6 +54,7 @@ const ShinyText = ({ children, className = "", variant = "purple" }: { children:
   );
 };
 import DemoAnalyticsDashboard from './DemoAnalyticsDashboard';
+import VoiceQueryInterface from './VoiceQueryInterface';
 
 // Define types directly in the component
 interface Vendor {
@@ -625,6 +626,24 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       setLoading(false);
     }
   };
+
+  // Voice query handlers
+  const handleVoiceQueryResult = useCallback((query: string, result: any) => {
+    console.log('Voice query processed:', { query, result });
+    
+    // If the result contains invoice search data, we could filter the current list
+    if (result.type === 'invoice_search' && result.data) {
+      // For now, just log the result. In the future, we could filter the invoice list
+      console.log('Search results:', result.data);
+    }
+  }, []);
+
+  const handleVoiceInvoiceSelect = useCallback((invoiceId: string) => {
+    const invoice = invoices.find(inv => inv.id === invoiceId);
+    if (invoice) {
+      onSelectInvoice(invoice);
+    }
+  }, [invoices, onSelectInvoice]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -2107,6 +2126,14 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             }
           `
         }} />
+      </div>
+
+      {/* Voice Query Interface */}
+      <div className="mb-6">
+        <VoiceQueryInterface
+          onQueryResult={handleVoiceQueryResult}
+          onInvoiceSelect={handleVoiceInvoiceSelect}
+        />
       </div>
 
       {/* Invoice Table Card */}

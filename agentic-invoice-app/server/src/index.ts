@@ -13,6 +13,7 @@ import dashboardRoutes from './routes/dashboard';
 import demoRoutes from './routes/demo';
 import businessRulesRoutes from './routes/businessRules';
 import communicationRoutes from './routes/communication';
+import voiceRoutes from './routes/voice';
 
 // Import Agent Zero
 import { AgentZeroService } from './agent-zero/AgentZeroService';
@@ -77,6 +78,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/demo', demoRoutes);
 app.use('/api/business-rules', businessRulesRoutes);
 app.use('/api/communication', communicationRoutes);
+app.use('/api/voice', voiceRoutes);
 
 // WebSocket connection for real-time Agent Zero updates
 wss.on('connection', async (ws) => {

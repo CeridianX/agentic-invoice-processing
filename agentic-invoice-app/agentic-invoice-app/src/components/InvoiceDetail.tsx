@@ -211,7 +211,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                       // Set default step info if API call fails
                       setStepInfo({
                         currentStep: 0,
-                        maxSteps: 4,
+                        maxSteps: 3,
                         nextStepName: 'Waiting for procurement response',
                         canAdvance: true
                       });
@@ -221,7 +221,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                     // Set default step info if there's an error
                     setStepInfo({
                       currentStep: 0,
-                      maxSteps: 4,
+                      maxSteps: 3,
                       nextStepName: 'Waiting for procurement response',
                       canAdvance: true
                     });
@@ -256,7 +256,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
               // Set default step info if API call fails
               setStepInfo({
                 currentStep: 0,
-                maxSteps: 4,
+                maxSteps: 3,
                 nextStepName: 'Waiting for procurement response',
                 canAdvance: true
               });
@@ -266,7 +266,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
             // Set default step info if there's an error
             setStepInfo({
               currentStep: 0,
-              maxSteps: 4,
+              maxSteps: 3,
               nextStepName: 'Waiting for procurement response',
               canAdvance: true
             });
@@ -317,7 +317,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
             // Set default step info if API call fails
             setStepInfo({
               currentStep: 0,
-              maxSteps: 4,
+              maxSteps: 3,
               nextStepName: 'Waiting for procurement response',
               canAdvance: true
             });
@@ -327,7 +327,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
           // Set default step info if there's an error
           setStepInfo({
             currentStep: 0,
-            maxSteps: 4,
+            maxSteps: 3,
             nextStepName: 'Waiting for procurement response',
             canAdvance: true
           });
@@ -512,7 +512,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
       statusClass = 'bg-purple-100 text-purple-700';
     }
     // If approved and ready for payment
-    else if (invoice.status === 'approved' || (invoice.approvalStatus === 'approved' && invoice.status !== 'paid')) {
+    else if (invoice.status === 'approved' || invoice.status === 'approved_ready_for_payment' || (invoice.approvalStatus === 'approved' && invoice.status !== 'paid')) {
       processStatus = 'Ready';
       statusClass = 'bg-green-100 text-green-700';
     }
@@ -706,7 +706,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                   </div>
-                  <h2 className="text-lg font-semibold text-gray-900">AI Communication</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Communication</h2>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                     communicationData.conversation?.status === 'resolved' 
                       ? 'bg-green-100 text-green-800' 
@@ -723,8 +723,77 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
               </div>
               
               <div className="space-y-4">
-                {/* Conversation Messages */}
-                {communicationData.messages.map((message, index) => (
+                {/* Current Status - moved to top */}
+                <div className={`rounded-lg p-4 border ${
+                  communicationData.conversation?.status === 'resolved'
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-yellow-50 border-yellow-200'
+                }`}>
+                  <div className="flex items-start space-x-3">
+                    <div className={`w-6 h-6 ${
+                      communicationData.conversation?.status === 'resolved'
+                        ? 'bg-green-500'
+                        : 'bg-yellow-500'
+                    } rounded-full flex items-center justify-center flex-shrink-0`}>
+                      {communicationData.conversation?.status === 'resolved' ? (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {communicationData.conversation?.status === 'resolved' ? 'Issue Resolved' : 'Current Status'}
+                      </p>
+                      <p className={`text-sm mt-1 ${
+                        communicationData.conversation?.status === 'resolved'
+                          ? 'text-green-700'
+                          : 'text-yellow-700'
+                      }`}>
+                        {(() => {
+                          if (communicationData.conversation?.status === 'resolved') {
+                            return 'Communication resolved. Invoice processing can continue.';
+                          }
+                          
+                          const currentStep = stepInfo?.currentStep || 0;
+                          switch (currentStep) {
+                            case 0:
+                              return 'AI inquiry sent to procurement team. Awaiting response about missing PO reference.';
+                            case 1:
+                              return 'Procurement team responded with PO correction. AI is processing the update.';
+                            case 2:
+                              return 'AI has resolved the issue and approved the invoice for payment processing.';
+                            case 3:
+                              return 'Procurement team has confirmed the resolution. Invoice ready for payment.';
+                            default:
+                              return 'Awaiting response from procurement team. Invoice processing will resume once clarification is received.';
+                          }
+                        })()}
+                      </p>
+                      {communicationData.conversation?.expectedResponseBy && 
+                       communicationData.conversation?.status !== 'resolved' && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Expected response by: {formatDate(communicationData.conversation.expectedResponseBy)}
+                        </p>
+                      )}
+                      {communicationData.conversation?.status === 'resolved' && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Resolved on: {formatDate(communicationData.conversation.lastActivity)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conversation Messages - newest first */}
+                {communicationData.messages
+                  .slice()
+                  .reverse()
+                  .map((message, index) => (
                   <div 
                     key={message.id} 
                     className={`bg-white rounded-lg p-3 border border-purple-100 transition-all duration-500 ${
@@ -801,114 +870,6 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                     </div>
                   </div>
                 ))}
-
-                {/* Status Update */}
-                <div className={`rounded-lg p-4 border ${
-                  communicationData.conversation?.status === 'resolved'
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-yellow-50 border-yellow-200'
-                }`}>
-                  <div className="flex items-start space-x-3">
-                    <div className={`w-6 h-6 ${
-                      communicationData.conversation?.status === 'resolved'
-                        ? 'bg-green-500'
-                        : 'bg-yellow-500'
-                    } rounded-full flex items-center justify-center flex-shrink-0`}>
-                      {communicationData.conversation?.status === 'resolved' ? (
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
-                        </svg>
-                      ) : (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        {communicationData.conversation?.status === 'resolved' ? 'Issue Resolved' : 'Current Status'}
-                      </p>
-                      <p className={`text-sm mt-1 ${
-                        communicationData.conversation?.status === 'resolved'
-                          ? 'text-green-700'
-                          : 'text-yellow-700'
-                      }`}>
-                        {(() => {
-                          if (communicationData.conversation?.status === 'resolved') {
-                            return 'Communication resolved. Invoice processing can continue.';
-                          }
-                          
-                          const currentStep = stepInfo?.currentStep || 0;
-                          switch (currentStep) {
-                            case 0:
-                              return 'AI inquiry sent to procurement team. Awaiting response about missing PO reference.';
-                            case 1:
-                              return 'Procurement team responded with PO correction. AI is processing the update.';
-                            case 2:
-                              return 'AI has acknowledged the correction and updated the invoice record.';
-                            case 3:
-                              return 'AI is requesting final confirmation to complete the resolution.';
-                            case 4:
-                              return 'Awaiting final approval from procurement team to process payment.';
-                            default:
-                              return 'Awaiting response from procurement team. Invoice processing will resume once clarification is received.';
-                          }
-                        })()}
-                        
-                      </p>
-                      {communicationData.conversation?.expectedResponseBy && 
-                       communicationData.conversation?.status !== 'resolved' && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          Expected response by: {formatDate(communicationData.conversation.expectedResponseBy)}
-                        </p>
-                      )}
-                      {communicationData.conversation?.status === 'resolved' && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          Resolved on: {formatDate(communicationData.conversation.lastActivity)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Interactive Step Controls - positioned at bottom */}
-                {stepInfo && (
-                  <div className="mt-6 pt-4 border-t border-purple-200">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-purple-600">
-                        Conversation Step {stepInfo.currentStep + 1} of {stepInfo.maxSteps + 1}
-                      </div>
-                      {stepInfo.canAdvance && (
-                        <button
-                          onClick={advanceConversation}
-                          disabled={advancingStep}
-                          className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {advancingStep ? (
-                            <>
-                              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              <span>Generating Response...</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                              </svg>
-                              <span>Next Response</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    {stepInfo.canAdvance && (
-                      <p className="text-xs text-purple-500 mt-2">
-                        Click "Next Response" to simulate the procurement team's reply
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           ) : communicationData && !communicationData.hasConversation ? (
@@ -983,6 +944,50 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
           )}
         </div>
       </div>
+      
+      {/* Floating Step Controls */}
+      {stepInfo && communicationData?.hasConversation && (
+        <div className="fixed bottom-6 right-6 bg-white rounded-lg shadow-lg border border-purple-200 p-4 z-50">
+          <div className="flex items-center space-x-3">
+            <div className="text-sm text-purple-600 font-medium">
+              Step {stepInfo.currentStep + 1} of {stepInfo.maxSteps + 1}
+            </div>
+            {stepInfo.canAdvance && (
+              <button
+                onClick={advanceConversation}
+                disabled={advancingStep}
+                className="flex items-center space-x-2 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {advancingStep ? (
+                  <>
+                    <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                    <span>Next</span>
+                  </>
+                )}
+              </button>
+            )}
+            {!stepInfo.canAdvance && (
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                Complete
+              </span>
+            )}
+          </div>
+          {stepInfo.canAdvance && (
+            <p className="text-xs text-purple-500 mt-2">
+              Demo controls for conversation flow
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

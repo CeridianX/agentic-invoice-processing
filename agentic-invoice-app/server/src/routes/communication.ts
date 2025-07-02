@@ -254,6 +254,7 @@ router.post('/advance/:conversationId', async (req, res) => {
             data: {
               status: 'approved_ready_for_payment',
               assignedTo: null, // Unassign from AI agent
+              hasIssues: false, // Clear the issues flag
               agentReasoning: 'PO reference issue resolved through communication with procurement team. Correct PO number (PO-2024-7738) confirmed and invoice approved for payment processing.',
               workflowRoute: 'resolved_via_communication'
             }
@@ -265,12 +266,13 @@ router.post('/advance/:conversationId', async (req, res) => {
       }
     }
 
-    // Generate next message based on current step
-    const nextStep = conversation.currentStep + 1;
+    // Generate next message based on the updated step (after advancement)
+    const updatedConv = emailService.getConversation(conversationId);
+    const nextStep = updatedConv.currentStep;
     let newMessage;
 
     try {
-      newMessage = await generateStepMessage(conversation, nextStep, communicationAgent, emailService);
+      newMessage = await generateStepMessage(updatedConv, nextStep, communicationAgent, emailService);
     } catch (aiError) {
       console.error('AI generation error during step advancement:', aiError);
       return res.status(500).json({ 
@@ -314,6 +316,9 @@ async function generateStepMessage(
     include: { vendor: true }
   });
 
+  // Adjust context based on response mode to avoid confusion
+  const isFromProcurement = step === 1 || step === 3;
+  
   const context = {
     scenario: conversation.scenario,
     invoiceId: conversation.relatedInvoiceId,
@@ -327,7 +332,7 @@ async function generateStepMessage(
     issueDetails: {
       description: `Invoice references PO "PO-2024-7839" which is not found in our system`,
       severity: 'medium' as const,
-      actionRequired: [
+      actionRequired: isFromProcurement ? [] : [
         'Verify if this PO number is correct',
         'Provide the correct PO if there was a typo',
         'Confirm if this purchase was authorized without a PO'
@@ -356,7 +361,7 @@ async function generateStepMessage(
       
       Address the email to the AI Invoice System and reference the specific invoice and vendor mentioned in the original inquiry.`;
       break;
-    case 2: // AI agent acknowledgment and update confirmation
+    case 2: // AI agent acknowledgment, update confirmation, and processing approval
       responseMode = 'agent';
       customInstructions = `You are the AI Invoice System responding to the procurement team's clarification about the PO number correction.
       
@@ -364,25 +369,17 @@ async function generateStepMessage(
       
       Confirm that you have successfully updated the invoice record with the correct PO reference and that all validation checks now pass.
       
-      Be professional and indicate that the invoice is ready for final approval and processing.`;
+      Indicate that the invoice has been approved and will now be processed for payment.
+      
+      Be professional and conclusive - this resolves the issue completely.`;
       break;
-    case 3: // AI requests final confirmation and resolution
-      responseMode = 'agent';
-      customInstructions = `You are the AI Invoice System sending a final confirmation request to the procurement team.
-      
-      Confirm that the invoice has been successfully updated with PO number "PO-2024-7738" and all issues have been resolved.
-      
-      Request final confirmation from the procurement team that the invoice can now be processed for payment.
-      
-      Be professional and indicate that once confirmed, the invoice will be moved to "Ready for Payment" status.`;
-      break;
-    case 4: // Final procurement confirmation
+    case 3: // Final procurement confirmation and thanks
       responseMode = 'procurement';
-      customInstructions = `Provide a brief final confirmation as the procurement team that everything is now resolved and the invoice can be processed for payment.
+      customInstructions = `Provide a brief final confirmation as the procurement team acknowledging the AI's update.
       
-      Confirm that PO-2024-7738 is correct and authorized, and give approval to proceed with payment processing.
+      Thank the AI system for the quick resolution and confirm that the corrected PO number (PO-2024-7738) is accurate.
       
-      Express appreciation for the AI system's efficiency in catching and resolving the PO discrepancy.`;
+      Keep it brief and professional - just a simple acknowledgment that everything is now in order.`;
       break;
     default:
       throw new Error(`Invalid step: ${step}`);

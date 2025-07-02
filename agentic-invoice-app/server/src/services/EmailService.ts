@@ -145,7 +145,7 @@ export class EmailService extends EventEmitter {
       lastActivity: new Date(),
       expectedResponseBy: context.deadline,
       currentStep: 0, // Start at step 0 (initial message)
-      maxSteps: 4, // 0=initial, 1=procurement_response, 2=ai_ack, 3=ai_final, 4=resolution
+      maxSteps: 3, // 0=initial, 1=procurement_response, 2=ai_resolution, 3=procurement_final
       isInteractive: isInteractive
     };
 
@@ -370,9 +370,8 @@ Accounts Payable Team`,
     const stepNames = [
       'Initial inquiry sent',
       'Waiting for procurement response',
-      'Waiting for AI acknowledgment',
-      'Waiting for AI final confirmation',
-      'Waiting for final approval',
+      'Waiting for AI resolution',
+      'Waiting for final confirmation',
       'Conversation resolved'
     ];
 

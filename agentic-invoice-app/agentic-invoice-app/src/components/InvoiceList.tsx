@@ -803,7 +803,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       statusClass = 'bg-purple-100 text-purple-700';
     }
     // If approved and ready for payment
-    else if (invoice.status === 'approved' || (invoice.approvalStatus === 'approved' && invoice.status !== 'paid')) {
+    else if (invoice.status === 'approved' || invoice.status === 'approved_ready_for_payment' || (invoice.approvalStatus === 'approved' && invoice.status !== 'paid')) {
       processStatus = 'Ready';
       statusClass = 'bg-green-100 text-green-700';
     }
@@ -2210,8 +2210,13 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                         </div>
                         <div className="flex items-center space-x-1 text-xs">
                           {aiAnalysis.scenario && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-100 text-blue-800">
-                              {aiAnalysis.scenario}
+                            <span 
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-100 text-blue-800 cursor-help"
+                              title={aiAnalysis.reasoning || `${aiAnalysis.scenario} scenario`}
+                            >
+                              {aiAnalysis.scenario === 'missing_po' ? 'Missing PO' : 
+                               aiAnalysis.scenario === 'poor_quality' ? 'Poor Quality' :
+                               aiAnalysis.scenario.charAt(0).toUpperCase() + aiAnalysis.scenario.slice(1)}
                             </span>
                           )}
                           {aiAnalysis.processingTime && (
@@ -2220,11 +2225,6 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                         </div>
                         {aiAnalysis.variance && (
                           <span className="text-xs text-amber-600">{aiAnalysis.variance}</span>
-                        )}
-                        {aiAnalysis.reasoning && (
-                          <div className="text-xs text-gray-500 truncate max-w-32" title={aiAnalysis.reasoning}>
-                            💭 {aiAnalysis.reasoning}
-                          </div>
                         )}
                       </div>
                     </td>

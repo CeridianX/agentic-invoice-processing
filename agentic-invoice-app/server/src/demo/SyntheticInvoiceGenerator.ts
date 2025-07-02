@@ -265,7 +265,7 @@ export class SyntheticInvoiceGenerator {
       notes: 'Invoice references PO "PO-2024-7839" which is not found in our system. AI has queried procurement team for clarification.',
       // Agent Zero specific fields for this scenario
       agentProcessingStarted: new Date(), // Processing has started
-      agentProcessingCompleted: null, // But not completed - waiting for response
+      agentProcessingCompleted: new Date(), // Mark as completed to allow communication trigger
       agentConfidence: 0.85, // High confidence that this is the issue
       agentReasoning: 'Invoice validation failed due to missing PO reference "PO-2024-7839". Automatically generated query to procurement team for clarification. Awaiting response.',
       workflowRoute: 'internal_query',

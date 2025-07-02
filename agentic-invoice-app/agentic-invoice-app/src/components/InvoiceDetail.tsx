@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 // Define types directly in the component
 interface Vendor {
@@ -115,30 +115,144 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
   const [stepInfo, setStepInfo] = useState<ConversationStepInfo | null>(null);
   const [advancingStep, setAdvancingStep] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+  const [triggeringCommunication, setTriggeringCommunication] = useState(false);
+  const hasTriggeredCommunication = useRef<Set<string>>(new Set());
+  const loadingRef = useRef<boolean>(false);
+  
+  // Global tracking to prevent duplicate triggers across component re-renders
+  const globalTriggeredKey = `communication_triggered_${invoice.id}`;
+  const hasGloballyTriggered = (() => {
+    if (typeof window !== 'undefined') {
+      return window.sessionStorage.getItem(globalTriggeredKey) === 'true';
+    }
+    return false;
+  })();
 
-  const loadCommunicationData = useCallback(async () => {
+  const loadCommunicationData = useCallback(async (skipAutoTrigger = false) => {
+    // Prevent duplicate loading in React StrictMode
+    if (loadingRef.current) {
+      console.log(`⏭️ Already loading communication data for ${invoice.id}, skipping...`);
+      return;
+    }
+    
+    loadingRef.current = true;
     setCommunicationLoading(true);
+    console.log(`🔍 [${new Date().toISOString()}] Loading communication data for invoice: ${invoice.id}`);
     try {
-      const response = await fetch(`http://localhost:3001/api/communication/conversations/${invoice.id}`);
+      const url = `http://localhost:3001/api/communication/conversations/${invoice.id}`;
+      console.log(`🔍 Fetching from URL: ${url}`);
+      const response = await fetch(url);
+      console.log(`🔍 Response status: ${response.status}`);
       if (response.ok) {
         const data = await response.json();
-        setCommunicationData(data);
+        console.log(`📧 [${new Date().toISOString()}] Communication data received:`, data);
+        console.log(`📧 hasConversation: ${data.hasConversation}`);
+        console.log(`📧 conversation:`, data.conversation);
+        console.log(`📧 messages count: ${data.messages?.length || 0}`);
         
-        // Get step info if conversation exists
-        if (data.hasConversation && data.conversation) {
+        // Check if Agent Zero is still processing (race condition prevention)
+        const isAgentProcessing = invoice.agentProcessingStarted && !invoice.agentProcessingCompleted;
+        
+        console.log(`🔍 Auto-trigger decision for ${invoice.invoiceNumber}:`, {
+          skipAutoTrigger,
+          hasConversation: data.hasConversation,
+          triggeringCommunication,
+          isAgentProcessing,
+          localTriggered: hasTriggeredCommunication.current.has(invoice.id),
+          globalTriggered: hasGloballyTriggered,
+          status: invoice.status,
+          scenario: invoice.scenario
+        });
+        
+        // Auto-trigger communication for missing PO invoices if not already present
+        if (!skipAutoTrigger &&
+            !data.hasConversation && 
+            !triggeringCommunication &&
+            !isAgentProcessing &&
+            !hasTriggeredCommunication.current.has(invoice.id) &&
+            !hasGloballyTriggered &&
+            invoice.status === 'pending_internal_review' &&
+            invoice.scenario === 'missing_po') {
+          
+          console.log(`🔧 Auto-triggering communication for missing PO invoice: ${invoice.invoiceNumber}`);
+          setTriggeringCommunication(true);
+          hasTriggeredCommunication.current.add(invoice.id);
+          
+          // Mark as triggered globally
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.setItem(globalTriggeredKey, 'true');
+          }
+          
+          try {
+            const triggerResponse = await fetch(`http://localhost:3001/api/communication/invoke/${invoice.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ scenario: 'missing_po' })
+            });
+            
+            if (triggerResponse.ok) {
+              console.log(`✅ Communication triggered successfully for ${invoice.invoiceNumber}`);
+              // Reload communication data to show the new conversation
+              const retryResponse = await fetch(url);
+              if (retryResponse.ok) {
+                const retryData = await retryResponse.json();
+                setCommunicationData(retryData);
+                console.log(`📧 Reloaded communication data:`, retryData);
+              }
+            } else {
+              console.error(`❌ Failed to trigger communication for ${invoice.invoiceNumber}`);
+              setCommunicationData(data);
+            }
+          } catch (triggerError) {
+            console.error('Error auto-triggering communication:', triggerError);
+            setCommunicationData(data);
+          } finally {
+            setTriggeringCommunication(false);
+          }
+        } else {
+          setCommunicationData(data);
+        }
+        
+        // Get step info if conversation exists (always use fresh data from API)
+        if (data?.hasConversation && data?.conversation) {
+          console.log(`🔍 Loading step info for conversation: ${data.conversation.id}`);
           const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${data.conversation.id}`);
           if (stepResponse.ok) {
             const stepData = await stepResponse.json();
+            console.log(`📊 Step info received:`, stepData);
             setStepInfo(stepData);
+          } else {
+            console.error(`❌ Failed to load step info: ${stepResponse.status}`);
           }
+        } else {
+          // Clear step info if no conversation
+          setStepInfo(null);
         }
+      } else {
+        console.error(`🔍 Response not ok: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`🔍 Error response: ${errorText}`);
       }
     } catch (error) {
       console.error('Error fetching communication data:', error);
     } finally {
       setCommunicationLoading(false);
+      loadingRef.current = false;
     }
   }, [invoice.id]);
+
+  // Debug logging for communication state
+  useEffect(() => {
+    console.log(`🔍 Communication state changed:`, {
+      loading: communicationLoading,
+      hasData: !!communicationData,
+      hasConversation: communicationData?.hasConversation,
+      messageCount: communicationData?.messages?.length,
+      conversationStatus: communicationData?.conversation?.status,
+      hasStepInfo: !!stepInfo,
+      stepInfo: stepInfo
+    });
+  }, [communicationData, communicationLoading, stepInfo]);
 
   const advanceConversation = async () => {
     if (!communicationData?.conversation || !stepInfo?.canAdvance || advancingStep) {
@@ -186,6 +300,10 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
   };
 
   useEffect(() => {
+    // Clear refs when invoice changes
+    hasTriggeredCommunication.current.clear();
+    loadingRef.current = false;
+    
     const loadFullInvoice = async () => {
       try {
         const response = await fetch(`http://localhost:3001/api/invoices/${invoice.id}`);
@@ -205,7 +323,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
 
     loadFullInvoice();
     loadCommunicationData();
-  }, [invoice.id]);
+  }, [invoice.id, loadCommunicationData]);
 
   // WebSocket integration for real-time communication updates
   useEffect(() => {
@@ -222,20 +340,20 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
         // Handle communication-related events for this invoice
         if (message.type === 'communication_sent' && message.data?.invoiceId === invoice.id) {
           console.log('Real-time communication sent event received:', message.data);
-          // Reload communication data to show the new message
-          loadCommunicationData();
+          // Reload communication data to show the new message (skip auto-trigger)
+          loadCommunicationData(true);
         } else if (message.type === 'communication_received' && message.data?.invoiceId === invoice.id) {
           console.log('Real-time communication response received:', message.data);
-          // Reload communication data to show the response
-          loadCommunicationData();
+          // Reload communication data to show the response (skip auto-trigger)
+          loadCommunicationData(true);
         } else if (message.type === 'communication_resolved' && message.data?.invoiceId === invoice.id) {
           console.log('Real-time communication resolved event:', message.data);
-          // Reload communication data to show resolved status
-          loadCommunicationData();
+          // Reload communication data to show resolved status (skip auto-trigger)
+          loadCommunicationData(true);
         } else if (message.type === 'communication_initiated' && message.data?.invoiceId === invoice.id) {
           console.log('Real-time communication initiated event:', message.data);
-          // Reload communication data to show new conversation
-          loadCommunicationData();
+          // Reload communication data to show new conversation (skip auto-trigger)
+          loadCommunicationData(true);
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
@@ -473,16 +591,27 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
         <div className="space-y-6">
 
           {/* AI Communication */}
-          {communicationLoading ? (
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+          {(communicationLoading || triggeringCommunication) ? (
+            <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
               <div className="flex items-center space-x-2 mb-3">
-                <div className="w-8 h-8 bg-gray-400 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
                   <svg className="w-4 h-4 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-gray-900">Loading Communication...</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {(currentInvoice.status === 'pending_internal_review' && currentInvoice.scenario === 'missing_po') || triggeringCommunication
+                    ? 'AI Agent is preparing communication...' 
+                    : 'Loading Communication...'}
+                </h2>
               </div>
+              {((currentInvoice.status === 'pending_internal_review' && currentInvoice.scenario === 'missing_po') || triggeringCommunication) && (
+                <p className="text-sm text-purple-700">
+                  {triggeringCommunication 
+                    ? 'Generating inquiry to procurement team about missing PO reference...'
+                    : 'Generating inquiry to procurement team about missing PO reference.'}
+                </p>
+              )}
             </div>
           ) : communicationData?.hasConversation ? (
             <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
@@ -507,38 +636,6 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                     </span>
                   )}
                 </div>
-                
-                {/* Interactive Controls */}
-                {stepInfo && (
-                  <div className="flex items-center space-x-3">
-                    <div className="text-xs text-gray-500">
-                      Step {stepInfo.currentStep + 1} of {stepInfo.maxSteps + 1}
-                    </div>
-                    {stepInfo.canAdvance && (
-                      <button
-                        onClick={advanceConversation}
-                        disabled={advancingStep}
-                        className="flex items-center space-x-1 px-3 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {advancingStep ? (
-                          <>
-                            <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            <span>Generating...</span>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                            <span>Next Step</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
               
               <div className="space-y-4">
@@ -671,6 +768,45 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                     </div>
                   </div>
                 </div>
+                
+                {/* Interactive Step Controls - positioned at bottom */}
+                {stepInfo && (
+                  <div className="mt-6 pt-4 border-t border-purple-200">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-purple-600">
+                        Conversation Step {stepInfo.currentStep + 1} of {stepInfo.maxSteps + 1}
+                      </div>
+                      {stepInfo.canAdvance && (
+                        <button
+                          onClick={advanceConversation}
+                          disabled={advancingStep}
+                          className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {advancingStep ? (
+                            <>
+                              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              <span>Generating Response...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                              </svg>
+                              <span>Next Response</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    {stepInfo.canAdvance && (
+                      <p className="text-xs text-purple-500 mt-2">
+                        Click "Next Response" to simulate the procurement team's reply
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ) : communicationData && !communicationData.hasConversation ? (

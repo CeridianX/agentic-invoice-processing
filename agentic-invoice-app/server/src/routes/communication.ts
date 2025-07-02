@@ -324,17 +324,31 @@ async function generateStepMessage(
 
   // Determine message type based on step
   switch (step) {
-    case 1: // Procurement responds
+    case 1: // Procurement team responds to the AI's inquiry
       responseMode = 'procurement';
-      customInstructions = 'Respond as a helpful procurement team member. You found the issue - there was a typo in the PO number.';
+      customInstructions = `You are responding as a procurement team member to the AI system's inquiry about the missing PO reference "PO-2024-7839". 
+      
+      Explain that you found the issue - there was a typo in the PO number. The correct PO number is "PO-2024-7738". 
+      
+      Be helpful and professional. Acknowledge the AI's inquiry and provide the correct information needed to process the invoice.
+      
+      Address the email to the AI Invoice System and reference the specific invoice and vendor mentioned in the original inquiry.`;
       break;
     case 2: // AI agent follow-up
       responseMode = 'agent';
-      customInstructions = 'Thank the procurement team for the clarification and confirm next steps for processing the invoice.';
+      customInstructions = `You are the AI Invoice System responding to the procurement team's clarification about the PO number correction.
+      
+      Thank them for providing the correct PO number (PO-2024-7738 instead of PO-2024-7839). 
+      
+      Confirm that you will update the invoice record and proceed with processing. 
+      
+      Be professional and indicate that the invoice processing will now continue normally.`;
       break;
     case 3: // Final procurement confirmation
       responseMode = 'procurement';
-      customInstructions = 'Provide final confirmation that everything is resolved and the invoice can be processed.';
+      customInstructions = `Provide a brief final confirmation as the procurement team that everything is now resolved and the invoice can be processed normally.
+      
+      Express appreciation for the AI system's efficiency in catching and resolving the PO discrepancy.`;
       break;
     default:
       throw new Error(`Invalid step: ${step}`);

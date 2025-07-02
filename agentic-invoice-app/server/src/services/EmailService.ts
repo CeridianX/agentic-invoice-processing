@@ -123,6 +123,7 @@ export class EmailService extends EventEmitter {
     for (const [id, conversation] of this.conversations) {
       if (conversation.relatedInvoiceId === context.invoiceId && 
           conversation.status === 'active') {
+        console.log(`📧 Found existing conversation ${id} for invoice ${context.invoiceId}`);
         return id;
       }
     }

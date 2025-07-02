@@ -216,6 +216,17 @@ router.post('/create-realistic-scenarios', async (req, res) => {
       for (const invoice of invoices) {
         console.log(`🤖 Processing invoice ${invoice.invoiceNumber} with Agent Zero...`);
         
+        // Missing PO invoices are now properly configured in the SyntheticInvoiceGenerator
+        if (invoice.scenario === 'missing_po') {
+          console.log(`📝 Missing PO invoice created: ${invoice.invoiceNumber} - ready for AI Agent assignment and communication`);
+        }
+        
+        // Skip Agent Zero processing for missing PO invoices since they're handled by frontend communication
+        if (invoice.scenario === 'missing_po') {
+          console.log(`⏭️ Skipping Agent Zero processing for missing PO invoice ${invoice.invoiceNumber} - will be handled by frontend`);
+          continue;
+        }
+        
         // Start processing with staggered timing for visual effect
         setTimeout(() => {
           // Emit processing started event

@@ -99,6 +99,27 @@ export class AgentZeroService extends EventEmitter {
       console.error(`Agent Zero: Processing error for invoice ${data.invoiceId}: ${data.error}`);
       this.emit('processing_error', data);
     });
+
+    // Communication event handlers
+    this.orchestrator.on('communication_initiated', (data) => {
+      console.log(`Agent Zero: Communication initiated for invoice ${data.invoiceId}`);
+      this.emit('communication_initiated', data);
+    });
+
+    this.orchestrator.on('communication_sent', (data) => {
+      console.log(`Agent Zero: Communication sent - ${data.subject}`);
+      this.emit('communication_sent', data);
+    });
+
+    this.orchestrator.on('communication_received', (data) => {
+      console.log(`Agent Zero: Communication response received for ${data.scenario}`);
+      this.emit('communication_received', data);
+    });
+
+    this.orchestrator.on('communication_resolved', (data) => {
+      console.log(`Agent Zero: Communication resolved for invoice ${data.invoiceId}`);
+      this.emit('communication_resolved', data);
+    });
   }
 
   public async initialize(): Promise<void> {

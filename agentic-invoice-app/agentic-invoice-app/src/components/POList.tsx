@@ -118,7 +118,7 @@ export default function POList({ onSelectPO }: POListProps) {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading purchase orders...</div>
         </div>
@@ -128,7 +128,7 @@ export default function POList({ onSelectPO }: POListProps) {
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">Error loading purchase orders: {error}</p>
         </div>
@@ -137,67 +137,10 @@ export default function POList({ onSelectPO }: POListProps) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Purchase Orders</h1>
         <p className="mt-1 text-sm text-gray-600">Manage purchase orders and track delivery status</p>
-      </div>
-
-      {/* PO Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <FileText className="h-8 w-8 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total POs</p>
-              <p className="text-2xl font-semibold text-gray-900">{purchaseOrders.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Value</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {formatCurrency(purchaseOrders.reduce((sum, po) => sum + po.totalAmount, 0))}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <Calendar className="h-8 w-8 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Pending</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {purchaseOrders.filter(po => po.status === 'pending').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <Building2 className="h-8 w-8 text-orange-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Vendors</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {new Set(purchaseOrders.map(po => po.vendorId)).size}
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* PO Table */}

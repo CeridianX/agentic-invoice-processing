@@ -12,6 +12,7 @@ import agentRoutes from './routes/agents';
 import dashboardRoutes from './routes/dashboard';
 import demoRoutes from './routes/demo';
 import businessRulesRoutes from './routes/businessRules';
+import communicationRoutes from './routes/communication';
 
 // Import Agent Zero
 import { AgentZeroService } from './agent-zero/AgentZeroService';
@@ -75,6 +76,7 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/demo', demoRoutes);
 app.use('/api/business-rules', businessRulesRoutes);
+app.use('/api/communication', communicationRoutes);
 
 // WebSocket connection for real-time Agent Zero updates
 wss.on('connection', async (ws) => {
@@ -201,6 +203,35 @@ function setupAgentZeroListeners() {
   agentZero.on('invoice_processing_completed', (data) => {
     broadcastToClients({
       type: 'invoice_processing_completed',
+      data
+    });
+  });
+
+  // Communication event listeners
+  agentZero.on('communication_initiated', (data) => {
+    broadcastToClients({
+      type: 'communication_initiated',
+      data
+    });
+  });
+
+  agentZero.on('communication_sent', (data) => {
+    broadcastToClients({
+      type: 'communication_sent',
+      data
+    });
+  });
+
+  agentZero.on('communication_received', (data) => {
+    broadcastToClients({
+      type: 'communication_received',
+      data
+    });
+  });
+
+  agentZero.on('communication_resolved', (data) => {
+    broadcastToClients({
+      type: 'communication_resolved',
       data
     });
   });

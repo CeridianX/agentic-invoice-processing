@@ -54,9 +54,12 @@ You should:
     - Vendor Verification: ${validationResults.vendorVerification}
     - Date Validation: ${validationResults.dateValidation}
     - Mathematical Check: ${validationResults.mathCheck}
+    - PO Validation: ${validationResults.poValidation}
     
     Overall Risk Level: ${validationResults.riskLevel}
-    Confidence Score: ${(validationResults.confidence * 100).toFixed(1)}%`;
+    Confidence Score: ${(validationResults.confidence * 100).toFixed(1)}%
+    
+    ${validationResults.requiresCommunication ? `⚠️ Communication Required: ${validationResults.communicationReason}` : ''}`;
 
     if (validationResults.issues.length > 0) {
       reasoning += `\n\nIssues Identified:`;
@@ -82,10 +85,13 @@ You should:
       vendorVerification: 'PASS', 
       dateValidation: 'PASS',
       mathCheck: 'PASS',
+      poValidation: 'PASS',
       riskLevel: 'LOW' as 'LOW' | 'MEDIUM' | 'HIGH',
       confidence: 0.9,
       issues: [] as string[],
-      recommendations: [] as string[]
+      recommendations: [] as string[],
+      requiresCommunication: false,
+      communicationReason: null as string | null
     };
 
     if (!invoice) {
@@ -129,6 +135,20 @@ You should:
       results.riskLevel = 'HIGH';
       results.confidence = 0.88;
       results.recommendations.push('Valid but requires executive approval');
+      return results;
+    }
+
+    // Missing PO scenario - requires communication
+    if (scenario === 'missing_po') {
+      results.poValidation = 'FAIL';
+      results.issues.push('Purchase Order reference missing or invalid');
+      results.issues.push('PO "PO-2024-7839" not found in system');
+      results.riskLevel = 'MEDIUM';
+      results.confidence = 0.85; // High confidence in detecting the issue
+      results.requiresCommunication = true;
+      results.communicationReason = 'missing_po_inquiry';
+      results.recommendations.push('Query procurement team for PO clarification');
+      results.recommendations.push('Hold invoice processing until PO resolved');
       return results;
     }
 
@@ -228,10 +248,13 @@ You should:
         amountValidation: validationResults.amountValidation,
         vendorVerification: validationResults.vendorVerification,
         dateValidation: validationResults.dateValidation,
-        mathCheck: validationResults.mathCheck
+        mathCheck: validationResults.mathCheck,
+        poValidation: validationResults.poValidation
       },
       issues: validationResults.issues,
       recommendations: validationResults.recommendations,
+      requiresCommunication: validationResults.requiresCommunication,
+      communicationReason: validationResults.communicationReason,
       timestamp: new Date()
     };
   }

@@ -4,6 +4,7 @@ import { CoordinatorAgent } from '../agents/CoordinatorAgent';
 import { DocumentProcessorAgent } from '../agents/DocumentProcessorAgent';
 import { ValidationAgent } from '../agents/ValidationAgent';
 import { WorkflowAgent } from '../agents/WorkflowAgent';
+import { CommunicationAgent } from '../agents/CommunicationAgent';
 import { DocumentProcessorMCP } from '../mcp-servers/DocumentProcessorMCP';
 import { DatabaseMCP } from '../mcp-servers/DatabaseMCP';
 import { 
@@ -32,8 +33,23 @@ export class AgentOrchestrator extends EventEmitter {
     this.agents.set('DocumentProcessorAgent', new DocumentProcessorAgent());
     this.agents.set('ValidationAgent', new ValidationAgent());
     this.agents.set('WorkflowAgent', new WorkflowAgent());
+    this.agents.set('CommunicationAgent', new CommunicationAgent());
 
     console.log('Agent Zero orchestrator initialized with agents:', Array.from(this.agents.keys()));
+    
+    // Setup communication event forwarding
+    const communicationAgent = this.agents.get('CommunicationAgent');
+    if (communicationAgent) {
+      communicationAgent.on('communication_sent', (data: any) => {
+        this.emit('communication_sent', data);
+      });
+      communicationAgent.on('communication_received', (data: any) => {
+        this.emit('communication_received', data);
+      });
+      communicationAgent.on('communication_resolved', (data: any) => {
+        this.emit('communication_resolved', data);
+      });
+    }
   }
 
   private initializeMCPServers(): void {
@@ -138,6 +154,12 @@ export class AgentOrchestrator extends EventEmitter {
           extractedData = stepResult.extractedData || stepResult;
         } else if (step.agentName === 'ValidationAgent') {
           validationResult = stepResult;
+          
+          // Check if communication is required
+          if (stepResult.requiresCommunication) {
+            console.log(`🤖 ValidationAgent detected communication requirement: ${stepResult.communicationReason}`);
+            await this.handleCommunicationRequirement(stepResult, context);
+          }
         } else if (step.agentName === 'WorkflowAgent') {
           workflowResult = stepResult;
         }
@@ -554,6 +576,69 @@ export class AgentOrchestrator extends EventEmitter {
       if (agent.learn) {
         await agent.learn(experience);
       }
+    }
+  }
+
+  // Handle communication requirements detected by ValidationAgent
+  private async handleCommunicationRequirement(validationResult: any, context: AgentContext): Promise<void> {
+    const communicationAgent = this.agents.get('CommunicationAgent');
+    if (!communicationAgent) {
+      console.warn('CommunicationAgent not available for handling communication requirement');
+      return;
+    }
+
+    try {
+      const invoiceId = context.invoiceId;
+      const invoice = context.metadata?.invoice;
+
+      // Prepare communication context based on validation results
+      const communicationTask = this.createCommunicationTask(validationResult, invoice);
+      
+      console.log(`🤖 Triggering CommunicationAgent for: ${communicationTask}`);
+
+      // Execute communication agent with enhanced context
+      const communicationContext: AgentContext = {
+        ...context,
+        metadata: {
+          ...context.metadata,
+          validationResult,
+          invoice,
+          communicationReason: validationResult.communicationReason
+        }
+      };
+
+      const communicationResult = await communicationAgent.execute(communicationTask, communicationContext);
+      
+      if (communicationResult.success) {
+        console.log(`✅ Communication successfully initiated: ${communicationResult.emailMessage?.id}`);
+        
+        // Emit communication event for WebSocket broadcasting
+        this.emit('communication_initiated', {
+          invoiceId,
+          emailId: communicationResult.emailMessage?.id,
+          reason: validationResult.communicationReason,
+          confidence: communicationResult.confidence
+        });
+      } else {
+        console.warn('❌ Communication initiation failed:', communicationResult);
+      }
+
+    } catch (error) {
+      console.error('Error handling communication requirement:', error);
+      // Don't fail the entire processing pipeline due to communication errors
+    }
+  }
+
+  private createCommunicationTask(validationResult: any, invoice: any): string {
+    switch (validationResult.communicationReason) {
+      case 'missing_po_inquiry':
+        return `generate_missing_po_communication for invoice ${invoice?.invoiceNumber || 'unknown'}`;
+      case 'duplicate_verification':
+        return `generate_duplicate_verification for invoice ${invoice?.invoiceNumber || 'unknown'}`;
+      case 'vendor_verification':
+        return `generate_vendor_verification for invoice ${invoice?.invoiceNumber || 'unknown'}`;
+      default:
+        return `generate_communication for ${validationResult.communicationReason}`;
     }
   }
 }

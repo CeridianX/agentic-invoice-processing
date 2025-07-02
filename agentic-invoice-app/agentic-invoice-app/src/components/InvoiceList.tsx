@@ -2176,8 +2176,16 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                       {getProcessStatusBadge(invoice)}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-xs text-gray-600 truncate">
-                        {invoice.assignedTo || 'Unassigned'}
+                      <div className="text-xs truncate">
+                        {invoice.status === 'pending_internal_review' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                            AI Agent
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">
+                            {invoice.assignedTo || 'Unassigned'}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-4">

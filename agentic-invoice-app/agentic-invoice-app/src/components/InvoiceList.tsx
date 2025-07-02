@@ -2178,7 +2178,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                     <td className="py-3 px-4">
                       <div className="text-xs truncate">
                         {invoice.status === 'pending_internal_review' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700">
                             AI Agent
                           </span>
                         ) : (

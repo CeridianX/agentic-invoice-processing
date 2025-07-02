@@ -198,6 +198,35 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                 const retryData = await retryResponse.json();
                 setCommunicationData(retryData);
                 console.log(`📧 Reloaded communication data:`, retryData);
+                
+                // Load step info for the new conversation
+                if (retryData?.hasConversation && retryData?.conversation) {
+                  try {
+                    const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${retryData.conversation.id}`);
+                    if (stepResponse.ok) {
+                      const stepData = await stepResponse.json();
+                      console.log(`📊 Step info loaded after trigger:`, stepData);
+                      setStepInfo(stepData);
+                    } else {
+                      // Set default step info if API call fails
+                      setStepInfo({
+                        currentStep: 0,
+                        maxSteps: 3,
+                        nextStepName: 'Waiting for procurement response',
+                        canAdvance: true
+                      });
+                    }
+                  } catch (stepError) {
+                    console.error('Error fetching step info after trigger:', stepError);
+                    // Set default step info if there's an error
+                    setStepInfo({
+                      currentStep: 0,
+                      maxSteps: 3,
+                      nextStepName: 'Waiting for procurement response',
+                      canAdvance: true
+                    });
+                  }
+                }
               }
             } else {
               console.error(`❌ Failed to trigger communication for ${invoice.invoiceNumber}`);
@@ -213,16 +242,34 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
           setCommunicationData(data);
         }
         
-        // Get step info if conversation exists (always use fresh data from API)
+        // Always load step info if conversation exists (regardless of skipAutoTrigger)
         if (data?.hasConversation && data?.conversation) {
           console.log(`🔍 Loading step info for conversation: ${data.conversation.id}`);
-          const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${data.conversation.id}`);
-          if (stepResponse.ok) {
-            const stepData = await stepResponse.json();
-            console.log(`📊 Step info received:`, stepData);
-            setStepInfo(stepData);
-          } else {
-            console.error(`❌ Failed to load step info: ${stepResponse.status}`);
+          try {
+            const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${data.conversation.id}`);
+            if (stepResponse.ok) {
+              const stepData = await stepResponse.json();
+              console.log(`📊 Step info received:`, stepData);
+              setStepInfo(stepData);
+            } else {
+              console.error(`❌ Failed to load step info: ${stepResponse.status}`);
+              // Set default step info if API call fails
+              setStepInfo({
+                currentStep: 0,
+                maxSteps: 3,
+                nextStepName: 'Waiting for procurement response',
+                canAdvance: true
+              });
+            }
+          } catch (stepError) {
+            console.error('Error fetching step info:', stepError);
+            // Set default step info if there's an error
+            setStepInfo({
+              currentStep: 0,
+              maxSteps: 3,
+              nextStepName: 'Waiting for procurement response',
+              canAdvance: true
+            });
           }
         } else {
           // Clear step info if no conversation
@@ -253,6 +300,43 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
       stepInfo: stepInfo
     });
   }, [communicationData, communicationLoading, stepInfo]);
+
+  // Ensure step info is loaded whenever communication data indicates a conversation exists
+  useEffect(() => {
+    const loadStepInfoIfNeeded = async () => {
+      if (communicationData?.hasConversation && communicationData?.conversation && !stepInfo) {
+        console.log(`🔧 Loading missing step info for conversation: ${communicationData.conversation.id}`);
+        try {
+          const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${communicationData.conversation.id}`);
+          if (stepResponse.ok) {
+            const stepData = await stepResponse.json();
+            console.log(`📊 Step info loaded in useEffect:`, stepData);
+            setStepInfo(stepData);
+          } else {
+            console.error(`❌ Failed to load step info in useEffect: ${stepResponse.status}`);
+            // Set default step info if API call fails
+            setStepInfo({
+              currentStep: 0,
+              maxSteps: 3,
+              nextStepName: 'Waiting for procurement response',
+              canAdvance: true
+            });
+          }
+        } catch (stepError) {
+          console.error('Error fetching step info in useEffect:', stepError);
+          // Set default step info if there's an error
+          setStepInfo({
+            currentStep: 0,
+            maxSteps: 3,
+            nextStepName: 'Waiting for procurement response',
+            canAdvance: true
+          });
+        }
+      }
+    };
+
+    loadStepInfoIfNeeded();
+  }, [communicationData, stepInfo]);
 
   const advanceConversation = async () => {
     if (!communicationData?.conversation || !stepInfo?.canAdvance || advancingStep) {

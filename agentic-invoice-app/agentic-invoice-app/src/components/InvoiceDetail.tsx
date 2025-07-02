@@ -571,104 +571,130 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Invoice Summary */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Invoice Details</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Invoice Date</p>
-                <p className="text-base font-medium">{formatDate(currentInvoice.invoiceDate)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Due Date</p>
-                <p className="text-base font-medium">{formatDate(currentInvoice.dueDate)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Amount</p>
-                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(currentInvoice.amount)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <div className="mt-1">
-                  {(() => {
-                    const { processStatus, statusClass } = getProcessStatusBadge(currentInvoice);
-                    return (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
-                        {processStatus === 'Processing' && <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>}
-                        {processStatus === 'Exception' && <span className="text-orange-600 mr-1">⚠</span>}
-                        {processStatus}
-                      </span>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Line Items */}
-          {currentInvoice.lineItems && currentInvoice.lineItems.length > 0 && (
+          {/* Invoice Details and Vendor Information Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Line Items</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 text-sm font-medium text-gray-500">Description</th>
-                      <th className="text-right py-3 text-sm font-medium text-gray-500">Qty</th>
-                      <th className="text-right py-3 text-sm font-medium text-gray-500">Unit Price</th>
-                      <th className="text-right py-3 text-sm font-medium text-gray-500">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {currentInvoice.lineItems.map((item) => (
-                      <tr key={item.id}>
-                        <td className="py-3 text-sm text-gray-900">{item.description}</td>
-                        <td className="py-3 text-sm text-gray-900 text-right">{item.quantity}</td>
-                        <td className="py-3 text-sm text-gray-900 text-right">{formatCurrency(item.unitPrice)}</td>
-                        <td className="py-3 text-sm font-medium text-gray-900 text-right">{formatCurrency(item.totalAmount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-200">
-                      <td colSpan={3} className="py-3 text-sm font-medium text-gray-900">Total</td>
-                      <td className="py-3 text-lg font-semibold text-gray-900 text-right">{formatCurrency(currentInvoice.amount)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Invoice Details</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Amount</p>
+                  <p className="text-2xl font-semibold text-gray-900">{formatCurrency(currentInvoice.amount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <div className="mt-1">
+                    {(() => {
+                      const { processStatus, statusClass } = getProcessStatusBadge(currentInvoice);
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
+                          {processStatus === 'Processing' && <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>}
+                          {processStatus === 'Exception' && <span className="text-orange-600 mr-1">⚠</span>}
+                          {processStatus}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Invoice Date</p>
+                  <p className="text-base">{formatDate(currentInvoice.invoiceDate)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Due Date</p>
+                  <p className="text-base">{formatDate(currentInvoice.dueDate)}</p>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Vendor Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Vendor Information</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Name</p>
-                <p className="text-base font-medium">{currentInvoice.vendor.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Category</p>
-                <p className="text-base">{currentInvoice.vendor.category}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Payment Terms</p>
-                <p className="text-base">{currentInvoice.vendor.paymentTerms}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Trust Level</p>
-                <div className="mt-1">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    currentInvoice.vendor.trustLevel === 'high' ? 'bg-green-100 text-green-700' :
-                    currentInvoice.vendor.trustLevel === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
-                  }`}>
-                    {currentInvoice.vendor.trustLevel}
-                  </span>
+            {/* Vendor Information - moved beside Invoice Details */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Vendor Information</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Name</p>
+                  <p className="text-base">{currentInvoice.vendor.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Category</p>
+                  <p className="text-base">{currentInvoice.vendor.category}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Payment Terms</p>
+                  <p className="text-base">{currentInvoice.vendor.paymentTerms}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Trust Level</p>
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      currentInvoice.vendor.trustLevel === 'high' ? 'bg-green-100 text-green-700' :
+                      currentInvoice.vendor.trustLevel === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {currentInvoice.vendor.trustLevel}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Line Items - Hardcoded for all invoices */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Line Items</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 text-sm font-medium text-gray-500">Description</th>
+                    <th className="text-right py-3 text-sm font-medium text-gray-500">Qty</th>
+                    <th className="text-right py-3 text-sm font-medium text-gray-500">Unit Price</th>
+                    <th className="text-right py-3 text-sm font-medium text-gray-500">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  <tr>
+                    <td className="py-3 text-sm text-gray-900">Professional Services - Consulting</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">40</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">{formatCurrency(150)}</td>
+                    <td className="py-3 text-sm font-medium text-gray-900 text-right">{formatCurrency(6000)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 text-sm text-gray-900">Software License - Annual Subscription</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">1</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">{formatCurrency(2400)}</td>
+                    <td className="py-3 text-sm font-medium text-gray-900 text-right">{formatCurrency(2400)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 text-sm text-gray-900">Implementation Support</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">16</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">{formatCurrency(125)}</td>
+                    <td className="py-3 text-sm font-medium text-gray-900 text-right">{formatCurrency(2000)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 text-sm text-gray-900">Training Materials & Documentation</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">1</td>
+                    <td className="py-3 text-sm text-gray-900 text-right">{formatCurrency(500)}</td>
+                    <td className="py-3 text-sm font-medium text-gray-900 text-right">{formatCurrency(500)}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200">
+                    <td colSpan={3} className="py-3 text-sm font-medium text-gray-900">Subtotal</td>
+                    <td className="py-3 text-sm font-medium text-gray-900 text-right">{formatCurrency(10900)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} className="py-3 text-sm text-gray-600">Tax (8%)</td>
+                    <td className="py-3 text-sm text-gray-600 text-right">{formatCurrency(872)}</td>
+                  </tr>
+                  <tr className="border-t border-gray-200">
+                    <td colSpan={3} className="py-3 text-base font-medium text-gray-900">Total</td>
+                    <td className="py-3 text-lg font-semibold text-gray-900 text-right">{formatCurrency(currentInvoice.amount)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
         </div>
 
         {/* Sidebar */}

@@ -258,7 +258,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
   const statusIndicator = getStatusIndicator();
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className="fixed top-20 right-6 z-50">
       <AnimatePresence>
         {isExpanded && (
           <motion.div

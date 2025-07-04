@@ -29,7 +29,11 @@ export default function CaraVoiceWidget({
 }: CaraVoiceWidgetProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isActive, setIsActive] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => {
+    // Initialize from localStorage
+    const saved = localStorage.getItem('cara-muted');
+    return saved ? JSON.parse(saved) : false;
+  });
   const [showBubble, setShowBubble] = useState(true);
   const [conversationHistory, setConversationHistory] = useState<Array<{
     type: 'user' | 'cara';
@@ -45,6 +49,9 @@ export default function CaraVoiceWidget({
     onConnect: () => {
       logger.debug('🤖 Cara connected');
       setAgentStatus('listening');
+      
+      // Apply saved mute state
+      conversation.setVolume(isMuted ? 0 : 1);
     },
     onDisconnect: (reason) => {
       console.log('🤖 Cara disconnected. Reason:', reason);
@@ -330,9 +337,15 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
 
   // Toggle mute
   const toggleMute = () => {
-    setIsMuted(!isMuted);
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    
+    // Persist to localStorage
+    localStorage.setItem('cara-muted', JSON.stringify(newMutedState));
+    
+    // Apply volume change immediately
     if (conversation.status === 'connected') {
-      conversation.setVolume(isMuted ? 1 : 0);
+      conversation.setVolume(newMutedState ? 0 : 1);
     }
   };
 
@@ -354,6 +367,13 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
 
   return (
     <div className="fixed top-20 right-8 z-50">
+      {/* Custom CSS for slow pulse animation */}
+      <style>{`
+        @keyframes slowPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.7; transform: scale(1.05); }
+        }
+      `}</style>
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -368,15 +388,25 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
               <div className="flex items-center space-x-3">
                 <div className="relative">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    agentStatus === 'listening' ? 'bg-gradient-to-br from-green-400 to-green-500 animate-pulse' :
-                    agentStatus === 'thinking' ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 animate-pulse' :
-                    agentStatus === 'speaking' ? 'bg-gradient-to-br from-blue-400 to-blue-500 animate-pulse' :
+                    agentStatus === 'listening' ? 'bg-gradient-to-br from-green-400 to-green-500' :
+                    agentStatus === 'thinking' ? 'bg-gradient-to-br from-yellow-400 to-yellow-500' :
+                    agentStatus === 'speaking' ? 'bg-gradient-to-br from-blue-400 to-blue-500' :
                     'bg-gradient-to-br from-purple-500 to-pink-500'
-                  }`}>
+                  }`}
+                  style={{
+                    animation: (agentStatus === 'speaking' || agentStatus === 'listening' || agentStatus === 'thinking') 
+                      ? 'slowPulse 3s ease-in-out infinite' 
+                      : 'none'
+                  }}>
                     <MessageCircle className="w-4 h-4 text-white" />
                   </div>
                   {isActive && (
-                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${statusIndicator.color} ${statusIndicator.pulse ? 'animate-pulse' : ''}`} />
+                    <div 
+                      className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${statusIndicator.color}`}
+                      style={{
+                        animation: statusIndicator.pulse ? 'slowPulse 3s ease-in-out infinite' : 'none'
+                      }}
+                    />
                   )}
                 </div>
                 <div>
@@ -457,11 +487,18 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                     className={`flex ${entry.type === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                      className={`max-w-[80%] p-3 text-sm ${
                         entry.type === 'user'
                           ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
                           : 'bg-gray-100 text-gray-800'
                       }`}
+                      style={{ 
+                        borderRadius: entry.type === 'user' 
+                          ? '1.5rem 1.5rem 0.25rem 1.5rem'  // user: pointy bottom-left
+                          : '0.25rem 1.5rem 1.5rem 1.5rem', // cara: pointy top-left
+                        border: 'none',
+                        overflow: 'hidden'
+                      }}
                     >
                       {entry.message}
                     </div>
@@ -554,10 +591,17 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
             }}
             whileTap={{ scale: 0.95 }}
           >
-          <div className="relative">
+          <div className="relative w-14 h-14 flex items-center justify-center">
             <MessageCircle className="w-6 h-6" />
             {isActive && (
-              <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${statusIndicator.color} ${statusIndicator.pulse ? 'animate-pulse' : ''}`} />
+              <div 
+                className={`absolute w-3 h-3 rounded-full ${statusIndicator.color}`}
+                style={{
+                  top: '4px',
+                  right: '4px',
+                  animation: statusIndicator.pulse ? 'slowPulse 3s ease-in-out infinite' : 'none'
+                }}
+              />
             )}
           </div>
           </motion.button>

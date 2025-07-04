@@ -40,24 +40,38 @@ export default function CaraVoiceWidget({
   // ElevenLabs Conversational AI hook
   const conversation = useConversation({
     agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID,
+    options: {
+      // Add more stable connection options
+      autoConnect: false,
+      timeoutMs: 30000, // 30 second timeout
+    },
     onConnect: () => {
       console.log('🤖 Cara connected');
       setAgentStatus('listening');
     },
-    onDisconnect: () => {
-      console.log('🤖 Cara disconnected');
+    onDisconnect: (reason) => {
+      console.log('🤖 Cara disconnected. Reason:', reason);
       setAgentStatus('idle');
       
-      // If Cara was active and this wasn't a manual disconnect, try to reconnect
+      // If Cara was active and this wasn't a manual disconnect, try to reconnect immediately
       if (isActive && isExpanded) {
-        console.log('🔄 Attempting to reconnect Cara...');
+        console.log('🔄 Attempting to reconnect Cara immediately...');
         setTimeout(() => {
           if (isActive && conversation.status === 'disconnected') {
-            conversation.startSession().catch(error => {
+            conversation.startSession({
+              sessionConfig: {
+                turnDetection: {
+                  type: "server_vad",
+                  threshold: 0.5,
+                  prefix_padding_ms: 300,
+                  silence_duration_ms: 500
+                }
+              }
+            }).catch(error => {
               console.error('Failed to reconnect Cara:', error);
             });
           }
-        }, 2000);
+        }, 1000); // Reduced timeout to 1 second
       }
     },
     onMessage: (message) => {
@@ -237,8 +251,18 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
       
       console.log('🎯 Starting Cara session with agent ID:', import.meta.env.VITE_ELEVENLABS_AGENT_ID);
       
-      // Start conversation with existing agent
-      await conversation.startSession();
+      // Start conversation with existing agent and specific options
+      await conversation.startSession({
+        // Add session configuration to prevent premature closing
+        sessionConfig: {
+          turnDetection: {
+            type: "server_vad",
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 500
+          }
+        }
+      });
       
       console.log('🎯 Cara activated successfully');
     } catch (error) {

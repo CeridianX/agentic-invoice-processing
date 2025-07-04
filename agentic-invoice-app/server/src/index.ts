@@ -14,6 +14,9 @@ import demoRoutes from './routes/demo';
 import businessRulesRoutes from './routes/businessRules';
 import communicationRoutes from './routes/communication';
 import voiceRoutes from './routes/voice';
+import jarvisRoutes from './routes/jarvis';
+import jarvisToolsRoutes from './routes/jarvis-tools';
+import jarvisToolsDebugRoutes from './routes/jarvis-tools-debug';
 
 // Import Agent Zero
 import { AgentZeroService } from './agent-zero/AgentZeroService';
@@ -79,6 +82,9 @@ app.use('/api/demo', demoRoutes);
 app.use('/api/business-rules', businessRulesRoutes);
 app.use('/api/communication', communicationRoutes);
 app.use('/api/voice', voiceRoutes);
+app.use('/api/jarvis', jarvisRoutes);
+app.use('/api/jarvis-tools', jarvisToolsRoutes);
+app.use('/api/jarvis-debug', jarvisToolsDebugRoutes);
 
 // WebSocket connection for real-time Agent Zero updates
 wss.on('connection', async (ws) => {

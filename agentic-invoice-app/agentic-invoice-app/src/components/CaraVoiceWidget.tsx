@@ -49,19 +49,8 @@ export default function CaraVoiceWidget({
       console.log('🤖 Cara disconnected. Reason:', reason);
       setAgentStatus('idle');
       
-      // If Cara was active and this wasn't a manual disconnect, try to reconnect immediately
-      if (isActive && isExpanded) {
-        console.log('🔄 Attempting to reconnect Cara immediately...');
-        setTimeout(() => {
-          if (isActive && conversation.status === 'disconnected') {
-            conversation.startSession({
-              agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID
-            }).catch(error => {
-              console.error('Failed to reconnect Cara:', error);
-            });
-          }
-        }, 1000); // Reduced timeout to 1 second
-      }
+      // Don't auto-reconnect - let user control when to wake up Cara
+      // This prevents unwanted auto-initialization
     },
     onMessage: (message) => {
       console.log('🗣️ Cara said:', message);
@@ -288,26 +277,23 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
     console.log('🎯 Cara chat window closed');
   };
 
-  // Restart Cara session (when idle)
+  // Wake up Cara session (when idle)
   const restartCara = async () => {
     try {
-      console.log('🔄 Restarting Cara session...');
+      console.log('🔄 Waking up Cara...');
       setAgentStatus('thinking');
       
-      // End current session if connected
-      if (conversation.status === 'connected') {
-        await conversation.endSession();
+      // Only start session if not connected, otherwise just try to reconnect
+      if (conversation.status !== 'connected') {
+        const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
+        await conversation.startSession({
+          agentId: agentId
+        });
       }
       
-      // Start new session
-      const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
-      await conversation.startSession({
-        agentId: agentId
-      });
-      
-      console.log('✅ Cara session restarted');
+      console.log('✅ Cara is awake');
     } catch (error) {
-      console.error('Failed to restart Cara:', error);
+      console.error('Failed to wake up Cara:', error);
       setAgentStatus('idle');
     }
   };

@@ -396,14 +396,14 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                   {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
                 
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-between w-full ml-3">
+                  <div className="flex items-center space-x-3">
                     {agentStatus === 'listening' && (
-                      <div className="flex space-x-1">
-                        <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse"></div>
-                        <div className="w-1 h-3 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                        <div className="w-1 h-5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                        <div className="w-1 h-2 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                      <div className="flex space-x-0.5">
+                        <div className="w-0.5 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <div className="w-0.5 h-1.5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-0.5 h-2.5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-0.5 h-1 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
                       </div>
                     )}
                     <div className={`text-xs font-medium transition-colors ${

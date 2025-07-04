@@ -396,8 +396,42 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
             <div ref={chatAreaRef} className="h-64 overflow-y-auto p-4 space-y-3">
               {conversationHistory.length === 0 ? (
                 <div className="text-center text-gray-500 text-sm py-8">
-                  <MessageCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  Start a conversation with Cara
+                  <div className="flex flex-col items-center">
+                    {/* Loading animation */}
+                    <div className="relative mb-4">
+                      <motion.div
+                        className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center"
+                        animate={{
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 360]
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      >
+                        <MessageCircle className="w-6 h-6 text-white" />
+                      </motion.div>
+                      {/* Pulse ring */}
+                      <motion.div
+                        className="absolute inset-0 rounded-full border-2 border-purple-300"
+                        animate={{
+                          scale: [1, 1.5, 1],
+                          opacity: [0.5, 0, 0.5]
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-gray-700">Cara is loading...</p>
+                      <p className="text-xs text-gray-400">Setting up your AI assistant</p>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 conversationHistory.map((entry, index) => (

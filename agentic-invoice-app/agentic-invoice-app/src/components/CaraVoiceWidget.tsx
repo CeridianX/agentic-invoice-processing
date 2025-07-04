@@ -444,8 +444,15 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                 </div>
               ) : (
                 conversationHistory.map((entry, index) => (
-                  <div
+                  <motion.div
                     key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ 
+                      duration: 0.4,
+                      delay: index === conversationHistory.length - 1 ? 0.1 : 0,
+                      ease: "easeOut"
+                    }}
                     className={`flex ${entry.type === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
@@ -457,7 +464,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                     >
                       {entry.message}
                     </div>
-                  </div>
+                  </motion.div>
                 ))
               )}
             </div>

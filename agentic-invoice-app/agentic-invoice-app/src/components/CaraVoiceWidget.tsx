@@ -273,6 +273,30 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
     console.log('🎯 Cara chat window closed');
   };
 
+  // Restart Cara session (when idle)
+  const restartCara = async () => {
+    try {
+      console.log('🔄 Restarting Cara session...');
+      setAgentStatus('thinking');
+      
+      // End current session if connected
+      if (conversation.status === 'connected') {
+        await conversation.endSession();
+      }
+      
+      // Start new session
+      const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
+      await conversation.startSession({
+        agentId: agentId
+      });
+      
+      console.log('✅ Cara session restarted');
+    } catch (error) {
+      console.error('Failed to restart Cara:', error);
+      setAgentStatus('idle');
+    }
+  };
+
   // Fully deactivate Cara (end session and close window)
   const deactivateCara = async () => {
     try {
@@ -411,11 +435,12 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                 <div className="flex items-center justify-between w-full ml-3">
                   <div className="flex items-center space-x-3">
                     {agentStatus === 'listening' && (
-                      <div className="flex space-x-0.5">
-                        <div className="w-0.5 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <div className="w-0.5 h-1.5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                        <div className="w-0.5 h-2.5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                        <div className="w-0.5 h-1 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                      <div className="flex items-center space-x-0.5">
+                        <div className="w-0.5 h-1 bg-green-400 rounded-sm animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-0.5 h-2 bg-green-400 rounded-sm animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                        <div className="w-0.5 h-3 bg-green-400 rounded-sm animate-pulse" style={{animationDelay: '0s'}}></div>
+                        <div className="w-0.5 h-2 bg-green-400 rounded-sm animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-0.5 h-1 bg-green-400 rounded-sm animate-pulse" style={{animationDelay: '0.4s'}}></div>
                       </div>
                     )}
                     <div className={`text-xs font-medium transition-colors ${
@@ -432,13 +457,24 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                   </div>
                   
                   {isActive && (
-                    <button
-                      onClick={deactivateCara}
-                      className="text-xs text-red-500 hover:text-red-700 transition-colors"
-                      title="End conversation"
-                    >
-                      End
-                    </button>
+                    <div className="flex space-x-2">
+                      {agentStatus === 'idle' && (
+                        <button
+                          onClick={restartCara}
+                          className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                          title="Restart conversation"
+                        >
+                          Restart
+                        </button>
+                      )}
+                      <button
+                        onClick={deactivateCara}
+                        className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                        title="End conversation"
+                      >
+                        End
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -461,7 +497,6 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             whileHover={{ 
-              scale: 1.05,
               background: 'linear-gradient(135deg, #9333ea, #db2777)',
               transition: { duration: 0.3, ease: "easeOut" }
             }}

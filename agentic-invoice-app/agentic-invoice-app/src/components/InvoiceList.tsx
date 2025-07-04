@@ -54,7 +54,7 @@ const ShinyText = ({ children, className = "", variant = "purple" }: { children:
   );
 };
 import DemoAnalyticsDashboard from './DemoAnalyticsDashboard';
-import VoiceQueryInterface from './VoiceQueryInterface';
+import JarvisConversationalAI from './JarvisConversationalAI';
 
 // Define types directly in the component
 interface Vendor {
@@ -162,10 +162,12 @@ interface CurrentProcessing {
 }
 
 // API service
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
 const invoiceService = {
   getAll: async (): Promise<Invoice[]> => {
     try {
-      const response = await fetch('http://localhost:3001/api/invoices');
+      const response = await fetch(`${apiBaseUrl}/api/invoices`);
       if (!response.ok) {
         throw new Error('Failed to fetch invoices');
       }
@@ -214,7 +216,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
 
   const setupWebSocket = () => {
     try {
-      wsRef.current = new WebSocket('ws://localhost:3001');
+      const wsUrl = apiBaseUrl.replace('https://', 'wss://').replace('http://', 'ws://');
+      wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
         console.log('Connected to Agent Zero WebSocket');
@@ -2128,11 +2131,25 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
         }} />
       </div>
 
-      {/* Voice Query Interface */}
+      {/* Jarvis AI Assistant */}
       <div className="mb-6">
-        <VoiceQueryInterface
-          onQueryResult={handleVoiceQueryResult}
+        <JarvisConversationalAI
           onInvoiceSelect={handleVoiceInvoiceSelect}
+          onActionRequest={(action, data) => {
+            console.log('🎯 Jarvis action request:', action, data);
+            // Handle different actions from Jarvis
+            if (action === 'show_invoice' && data?.invoiceId) {
+              handleVoiceInvoiceSelect(data.invoiceId);
+            } else if (action === 'filter_invoices') {
+              // Handle invoice filtering
+              if (data?.status) {
+                setFilters(prev => ({ ...prev, status: data.status }));
+              }
+            } else if (action === 'show_dashboard') {
+              // Could navigate to dashboard or show summary
+              console.log('Show dashboard requested');
+            }
+          }}
         />
       </div>
 
@@ -2342,7 +2359,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                   onClick={async () => {
                     setDemoDropdownOpen(false);
                     try {
-                      const response = await fetch('http://localhost:3001/api/demo/create-realistic-scenarios', { method: 'POST' });
+                      const response = await fetch(`${apiBaseUrl}/api/demo/create-realistic-scenarios`, { method: 'POST' });
                       const result = await response.json();
                       console.log('Demo scenarios created:', result);
                     } catch (error) {
@@ -2362,7 +2379,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                   onClick={async () => {
                     setDemoDropdownOpen(false);
                     try {
-                      const response = await fetch('http://localhost:3001/api/demo/trigger-learning', { method: 'POST' });
+                      const response = await fetch(`${apiBaseUrl}/api/demo/trigger-learning`, { method: 'POST' });
                       const result = await response.json();
                       console.log('Learning demo started:', result);
                     } catch (error) {
@@ -2397,7 +2414,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                   onClick={async () => {
                     setDemoDropdownOpen(false);
                     try {
-                      const response = await fetch('http://localhost:3001/api/demo/create-batch/5', { 
+                      const response = await fetch(`${apiBaseUrl}/api/demo/create-batch/5`, { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ scenarios: ['simple', 'complex', 'exceptional'] })
@@ -2437,7 +2454,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                   onClick={async () => {
                     setDemoDropdownOpen(false);
                     try {
-                      const response = await fetch('http://localhost:3001/api/demo/restart-agent-zero', { method: 'POST' });
+                      const response = await fetch(`${apiBaseUrl}/api/demo/restart-agent-zero`, { method: 'POST' });
                       const result = await response.json();
                       console.log('Agent Zero restarted:', result);
                     } catch (error) {
@@ -2458,7 +2475,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                     setDemoDropdownOpen(false);
                     if (confirm('Reset all demo data? This will clear all invoices.')) {
                       try {
-                        const response = await fetch('http://localhost:3001/api/demo/reset-data', { method: 'DELETE' });
+                        const response = await fetch(`${apiBaseUrl}/api/demo/reset-data`, { method: 'DELETE' });
                         const result = await response.json();
                         console.log('Data reset:', result);
                         window.location.reload();

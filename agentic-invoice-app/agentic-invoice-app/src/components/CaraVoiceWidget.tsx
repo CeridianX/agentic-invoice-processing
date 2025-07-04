@@ -29,6 +29,7 @@ export default function CaraVoiceWidget({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [showBubble, setShowBubble] = useState(true);
   const [conversationHistory, setConversationHistory] = useState<Array<{
     type: 'user' | 'cara';
     message: string;
@@ -230,8 +231,11 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
   // Initialize Cara when activated
   const activateCara = async () => {
     try {
-      // Show chat window immediately with history
-      setIsExpanded(true);
+      // Hide bubble first, then show chat window
+      setShowBubble(false);
+      setTimeout(() => {
+        setIsExpanded(true);
+      }, 150); // Small delay for smooth transition
       
       // Only start new session if not already active
       if (!isActive) {
@@ -262,6 +266,10 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
   // Close chat window (don't end session to preserve conversation)
   const closeChatWindow = () => {
     setIsExpanded(false);
+    // Show bubble after window animation completes
+    setTimeout(() => {
+      setShowBubble(true);
+    }, 300); // Match the exit animation duration
     console.log('🎯 Cara chat window closed');
   };
 
@@ -275,6 +283,10 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
       setIsExpanded(false);
       setAgentStatus('idle');
       setConversationHistory([]); // Clear history when fully deactivating
+      // Show bubble after window closes
+      setTimeout(() => {
+        setShowBubble(true);
+      }, 300);
       console.log('🎯 Cara deactivated');
     } catch (error) {
       console.error('Failed to deactivate Cara:', error);
@@ -435,22 +447,28 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         )}
       </AnimatePresence>
 
-      {/* Floating Action Button - Only show when not expanded */}
-      {!isExpanded && (
-        <motion.button
-          onClick={activateCara}
-          className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
+      {/* Floating Action Button - Only show when bubble should be visible */}
+      <AnimatePresence>
+        {showBubble && !isExpanded && (
+          <motion.button
+            onClick={activateCara}
+            className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
           <div className="relative">
             <MessageCircle className="w-6 h-6" />
             {isActive && (
               <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${statusIndicator.color} ${statusIndicator.pulse ? 'animate-pulse' : ''}`} />
             )}
           </div>
-        </motion.button>
-      )}
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

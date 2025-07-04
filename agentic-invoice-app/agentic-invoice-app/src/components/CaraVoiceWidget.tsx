@@ -502,7 +502,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                   
                   {isActive && (
                     <div className="flex space-x-2">
-                      {agentStatus === 'idle' && (
+                      {agentStatus === 'idle' && conversationHistory.length > 0 && (
                         <button
                           onClick={restartCara}
                           className="text-xs text-blue-500 hover:text-blue-700 transition-colors"

@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+// API base URL configuration
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
 // Define types directly in the component
 interface Vendor {
   id: string;
@@ -139,7 +142,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
     setCommunicationLoading(true);
     console.log(`🔍 [${new Date().toISOString()}] Loading communication data for invoice: ${invoice.id}`);
     try {
-      const url = `http://localhost:3001/api/communication/conversations/${invoice.id}`;
+      const url = `${apiBaseUrl}/api/communication/conversations/${invoice.id}`;
       console.log(`🔍 Fetching from URL: ${url}`);
       const response = await fetch(url);
       console.log(`🔍 Response status: ${response.status}`);
@@ -184,7 +187,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
           }
           
           try {
-            const triggerResponse = await fetch(`http://localhost:3001/api/communication/invoke/${invoice.id}`, {
+            const triggerResponse = await fetch(`${apiBaseUrl}/api/communication/invoke/${invoice.id}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ scenario: 'missing_po' })
@@ -202,7 +205,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                 // Load step info for the new conversation
                 if (retryData?.hasConversation && retryData?.conversation) {
                   try {
-                    const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${retryData.conversation.id}`);
+                    const stepResponse = await fetch(`${apiBaseUrl}/api/communication/step-info/${retryData.conversation.id}`);
                     if (stepResponse.ok) {
                       const stepData = await stepResponse.json();
                       console.log(`📊 Step info loaded after trigger:`, stepData);
@@ -246,7 +249,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
         if (data?.hasConversation && data?.conversation) {
           console.log(`🔍 Loading step info for conversation: ${data.conversation.id}`);
           try {
-            const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${data.conversation.id}`);
+            const stepResponse = await fetch(`${apiBaseUrl}/api/communication/step-info/${data.conversation.id}`);
             if (stepResponse.ok) {
               const stepData = await stepResponse.json();
               console.log(`📊 Step info received:`, stepData);
@@ -307,7 +310,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
       if (communicationData?.hasConversation && communicationData?.conversation && !stepInfo) {
         console.log(`🔧 Loading missing step info for conversation: ${communicationData.conversation.id}`);
         try {
-          const stepResponse = await fetch(`http://localhost:3001/api/communication/step-info/${communicationData.conversation.id}`);
+          const stepResponse = await fetch(`${apiBaseUrl}/api/communication/step-info/${communicationData.conversation.id}`);
           if (stepResponse.ok) {
             const stepData = await stepResponse.json();
             console.log(`📊 Step info loaded in useEffect:`, stepData);
@@ -345,7 +348,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
 
     setAdvancingStep(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/communication/advance/${communicationData.conversation.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/communication/advance/${communicationData.conversation.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -390,7 +393,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
     
     const loadFullInvoice = async () => {
       try {
-        const response = await fetch(`http://localhost:3001/api/invoices/${invoice.id}`);
+        const response = await fetch(`${apiBaseUrl}/api/invoices/${invoice.id}`);
         if (response.ok) {
           const data = await response.json();
           setFullInvoice(data);
@@ -409,9 +412,16 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
     loadCommunicationData();
   }, [invoice.id, loadCommunicationData]);
 
-  // WebSocket integration for real-time communication updates
+  // WebSocket integration for real-time communication updates (development only)
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:3001');
+    // Only enable WebSocket in development mode (localhost)
+    if (!apiBaseUrl.includes('localhost')) {
+      console.log('WebSocket disabled in production mode');
+      return;
+    }
+
+    const wsUrl = apiBaseUrl.replace('https://', 'wss://').replace('http://', 'ws://');
+    const ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
       console.log('WebSocket connected for communication updates');

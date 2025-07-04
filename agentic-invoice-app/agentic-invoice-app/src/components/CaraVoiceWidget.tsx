@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { MessageCircle, Mic, MicOff, X, Send, Loader } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { logger } from '../lib/logger';
 
 interface CaraVoiceWidgetProps {
   onInvoiceSelect?: (invoiceId: string) => void;
@@ -42,7 +43,7 @@ export default function CaraVoiceWidget({
   // ElevenLabs Conversational AI hook (matching working Jarvis approach)
   const conversation = useConversation({
     onConnect: () => {
-      console.log('🤖 Cara connected');
+      logger.debug('🤖 Cara connected');
       setAgentStatus('listening');
     },
     onDisconnect: (reason) => {
@@ -53,14 +54,14 @@ export default function CaraVoiceWidget({
       // This prevents unwanted auto-initialization
     },
     onMessage: (message) => {
-      console.log('🗣️ Cara said:', message);
+      logger.debug('🗣️ Cara said:', message);
       const messageText = typeof message === 'string' ? message : 
                          message?.message || message?.content || 'Message received';
       addToHistory('cara', messageText);
       setAgentStatus('listening');
     },
     onModeChange: (mode) => {
-      console.log('🔄 Cara mode changed:', mode);
+      logger.debug('🔄 Cara mode changed:', mode);
       switch (mode.mode) {
         case 'listening':
           setAgentStatus('listening');

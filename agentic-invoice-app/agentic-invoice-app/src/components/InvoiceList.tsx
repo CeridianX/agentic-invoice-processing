@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Zap, ChevronRight, ChevronDown, Brain, Activity, CheckCircle, AlertCircle, X, BarChart3 } from 'lucide-react';
 
@@ -55,6 +55,57 @@ const ShinyText = ({ children, className = "", variant = "purple" }: { children:
 };
 import DemoAnalyticsDashboard from './DemoAnalyticsDashboard';
 import CaraVoiceWidget from './CaraVoiceWidget';
+import { logger } from '../lib/logger';
+
+// Memoized Agent Card Component to prevent unnecessary re-renders
+const AgentCard = memo(({ agentName, status }: { agentName: string; status: any }) => {
+  const isActive = status?.status === 'working';
+  const isCompleted = status?.currentTask === 'Completed';
+  const displayName = agentName === 'CoordinatorAgent' ? 'Coordinator' :
+                     agentName === 'DocumentProcessorAgent' ? 'Extractor' :
+                     agentName === 'ValidationAgent' ? 'Validator' : 'Router';
+
+  return (
+    <div 
+      className={`p-2 rounded-lg border transition-all duration-300 ${
+        isActive 
+          ? 'bg-blue-900/40 border-blue-500/50 shadow-lg shadow-blue-500/20' 
+          : isCompleted
+            ? 'bg-green-900/30 border-green-500/50'
+            : 'bg-slate-800/30 border-slate-700'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div 
+            className={`w-2 h-2 rounded-full transition-all duration-300 flex-shrink-0 ${
+              isActive 
+                ? 'bg-blue-400 animate-pulse shadow-lg shadow-blue-400/50' 
+                : isCompleted
+                  ? 'bg-green-400 shadow-lg shadow-green-400/50'
+                  : 'bg-slate-500'
+            }`}
+          />
+          <span className="text-xs font-medium text-white truncate">
+            {displayName}
+          </span>
+        </div>
+        {status?.confidence && (
+          <span className={`text-xs font-semibold ${
+            isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-slate-400'
+          }`}>
+            {Math.round(status.confidence * 100)}%
+          </span>
+        )}
+      </div>
+      <div className={`text-xs mt-1 truncate transition-colors duration-300 ${
+        isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-slate-400'
+      }`}>
+        {status?.currentTask || 'Idle'}
+      </div>
+    </div>
+  );
+});
 
 // Define types directly in the component
 interface Vendor {
@@ -215,18 +266,24 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
   }, []);
 
   const setupWebSocket = () => {
+    // Only enable WebSocket in development mode (localhost)
+    if (!apiBaseUrl.includes('localhost')) {
+      logger.debug('WebSocket disabled in production mode');
+      return;
+    }
+
     try {
       const wsUrl = apiBaseUrl.replace('https://', 'wss://').replace('http://', 'ws://');
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
-        console.log('Connected to Agent Zero WebSocket');
+        logger.debug('Connected to Agent Zero WebSocket');
       };
 
       wsRef.current.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('📨 Raw WebSocket message:', message);
+          logger.debug('📨 Raw WebSocket message:', message);
           handleAgentZeroMessage(message);
         } catch (error) {
           console.error('❌ Error parsing WebSocket message:', error, event.data);
@@ -234,9 +291,11 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       };
 
       wsRef.current.onclose = () => {
-        console.log('Agent Zero WebSocket disconnected');
-        // Attempt to reconnect after 5 seconds
-        setTimeout(setupWebSocket, 5000);
+        logger.debug('Agent Zero WebSocket disconnected');
+        // Only attempt to reconnect in development
+        if (apiBaseUrl.includes('localhost')) {
+          setTimeout(setupWebSocket, 5000);
+        }
       };
 
       wsRef.current.onerror = (error) => {
@@ -1420,66 +1479,13 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
 
             {/* Agent Status Grid - Compact Design */}
             <div className="grid grid-cols-2 gap-2" style={{ gridArea: 'agents' }}>
-              {['CoordinatorAgent', 'DocumentProcessorAgent', 'ValidationAgent', 'WorkflowAgent'].map((agentName) => {
-                const status = agentStatuses[agentName];
-                const isActive = status?.status === 'working';
-                const isCompleted = status?.currentTask === 'Completed';
-                const displayName = agentName === 'CoordinatorAgent' ? 'Coordinator' :
-                                 agentName === 'DocumentProcessorAgent' ? 'Extractor' :
-                                 agentName === 'ValidationAgent' ? 'Validator' : 'Router';
-                
-                // Debug logging for each agent card render
-                console.log(`🎭 AGENT CARD RENDER - ${agentName}:`, {
-                  status: status?.status,
-                  isActive: isActive,
-                  isCompleted: isCompleted,
-                  currentTask: status?.currentTask,
-                  confidence: status?.confidence,
-                  fullStatus: JSON.stringify(status)
-                });
-                
-                return (
-                  <div 
-                    key={agentName}
-                    className={`p-2 rounded-lg border transition-all duration-300 ${
-                      isActive 
-                        ? 'bg-blue-900/40 border-blue-500/50 shadow-lg shadow-blue-500/20' 
-                        : isCompleted
-                          ? 'bg-green-900/30 border-green-500/50'
-                          : 'bg-slate-800/30 border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div 
-                          className={`w-2 h-2 rounded-full transition-all duration-300 flex-shrink-0 ${
-                            isActive 
-                              ? 'bg-blue-400 animate-pulse shadow-lg shadow-blue-400/50' 
-                              : isCompleted
-                                ? 'bg-green-400 shadow-lg shadow-green-400/50'
-                                : 'bg-slate-500'
-                          }`}
-                        />
-                        <span className="text-xs font-medium text-white truncate">
-                          {displayName}
-                        </span>
-                      </div>
-                      {status?.confidence && (
-                        <span className={`text-xs font-semibold ${
-                          isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-slate-400'
-                        }`}>
-                          {Math.round(status.confidence * 100)}%
-                        </span>
-                      )}
-                    </div>
-                    <div className={`text-xs mt-1 truncate transition-colors duration-300 ${
-                      isActive ? 'text-blue-300' : isCompleted ? 'text-green-300' : 'text-slate-400'
-                    }`}>
-                      {status?.currentTask || 'Idle'}
-                    </div>
-                  </div>
-                );
-              })}
+              {['CoordinatorAgent', 'DocumentProcessorAgent', 'ValidationAgent', 'WorkflowAgent'].map((agentName) => (
+                <AgentCard 
+                  key={agentName}
+                  agentName={agentName}
+                  status={agentStatuses[agentName]}
+                />
+              ))}
             </div>
 
             {/* Activity Feed - Flexible height */}

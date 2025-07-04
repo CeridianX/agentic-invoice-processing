@@ -37,14 +37,8 @@ export default function CaraVoiceWidget({
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [agentStatus, setAgentStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
 
-  // ElevenLabs Conversational AI hook
+  // ElevenLabs Conversational AI hook (matching working Jarvis approach)
   const conversation = useConversation({
-    agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID,
-    options: {
-      // Add more stable connection options
-      autoConnect: false,
-      timeoutMs: 30000, // 30 second timeout
-    },
     onConnect: () => {
       console.log('🤖 Cara connected');
       setAgentStatus('listening');
@@ -59,14 +53,7 @@ export default function CaraVoiceWidget({
         setTimeout(() => {
           if (isActive && conversation.status === 'disconnected') {
             conversation.startSession({
-              sessionConfig: {
-                turnDetection: {
-                  type: "server_vad",
-                  threshold: 0.5,
-                  prefix_padding_ms: 300,
-                  silence_duration_ms: 500
-                }
-              }
+              agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID
             }).catch(error => {
               console.error('Failed to reconnect Cara:', error);
             });
@@ -251,17 +238,10 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
       
       console.log('🎯 Starting Cara session with agent ID:', import.meta.env.VITE_ELEVENLABS_AGENT_ID);
       
-      // Start conversation with existing agent and specific options
+      // Start conversation with agent ID (matching working Jarvis approach)
+      const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
       await conversation.startSession({
-        // Add session configuration to prevent premature closing
-        sessionConfig: {
-          turnDetection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500
-          }
-        }
+        agentId: agentId
       });
       
       console.log('🎯 Cara activated successfully');

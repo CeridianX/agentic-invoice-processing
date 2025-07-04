@@ -54,7 +54,7 @@ const ShinyText = ({ children, className = "", variant = "purple" }: { children:
   );
 };
 import DemoAnalyticsDashboard from './DemoAnalyticsDashboard';
-import JarvisConversationalAI from './JarvisConversationalAI';
+import CaraVoiceWidget from './CaraVoiceWidget';
 
 // Define types directly in the component
 interface Vendor {
@@ -2131,27 +2131,24 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
         }} />
       </div>
 
-      {/* Jarvis AI Assistant */}
-      <div className="mb-6">
-        <JarvisConversationalAI
-          onInvoiceSelect={handleVoiceInvoiceSelect}
-          onActionRequest={(action, data) => {
-            console.log('🎯 Jarvis action request:', action, data);
-            // Handle different actions from Jarvis
-            if (action === 'show_invoice' && data?.invoiceId) {
-              handleVoiceInvoiceSelect(data.invoiceId);
-            } else if (action === 'filter_invoices') {
-              // Handle invoice filtering
-              if (data?.status) {
-                setFilters(prev => ({ ...prev, status: data.status }));
-              }
-            } else if (action === 'show_dashboard') {
-              // Could navigate to dashboard or show summary
-              console.log('Show dashboard requested');
-            }
-          }}
-        />
-      </div>
+      {/* Cara Voice Widget */}
+      <CaraVoiceWidget
+        onInvoiceSelect={handleVoiceInvoiceSelect}
+        onActionRequest={(action, data) => {
+          console.log('🎯 Cara action request:', action, data);
+          // Handle different actions from Cara
+          if (action === 'show_invoice' && data?.invoiceId) {
+            handleVoiceInvoiceSelect(data.invoiceId);
+          } else if (action === 'filter_invoices') {
+            // Handle invoice filtering
+            console.log('Filter invoices requested:', data);
+            // TODO: Implement invoice filtering by status
+          } else if (action === 'show_dashboard') {
+            // Could navigate to dashboard or show summary
+            console.log('Show dashboard requested');
+          }
+        }}
+      />
 
       {/* Invoice Table Card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { MessageCircle, Mic, MicOff, X, Send, Sparkles } from 'lucide-react';
+import { MessageCircle, Mic, MicOff, X, Send, Loader } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CaraVoiceWidgetProps {
@@ -174,6 +174,15 @@ export default function CaraVoiceWidget({
     const timeoutId = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timeoutId);
   }, [conversationHistory, scrollToBottom]);
+
+  // Auto-scroll when chat window opens/expands
+  useEffect(() => {
+    if (isExpanded && conversationHistory.length > 0) {
+      // Delay to ensure the window animation has completed
+      const timeoutId = setTimeout(scrollToBottom, 350);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isExpanded, scrollToBottom]);
 
   // Create dynamic configuration for Cara with invoice context
   const createCaraConfig = (invoiceData: InvoiceData | null) => {
@@ -411,7 +420,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                           ease: "easeInOut"
                         }}
                       >
-                        <Sparkles className="w-6 h-6 text-white" />
+                        <Loader className="w-6 h-6 text-white" />
                       </motion.div>
                       {/* Pulse ring */}
                       <motion.div

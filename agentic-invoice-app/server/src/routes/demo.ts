@@ -8,6 +8,10 @@ const prisma = new PrismaClient();
 let invoiceGenerator: SyntheticInvoiceGenerator | null = null;
 let agentZeroService: AgentZeroService | null = null;
 
+// Environment detection
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+const isLocal = !isVercel;
+
 // Initialize services
 const initializeServices = async () => {
   if (!invoiceGenerator) {
@@ -206,62 +210,108 @@ router.post('/create-batch/:count', async (req, res) => {
 // Create realistic demo scenarios
 router.post('/create-realistic-scenarios', async (req, res) => {
   try {
-    await initializeServices();
+    console.log(`🎬 Starting realistic demo scenarios creation... (Environment: ${isVercel ? 'Vercel' : 'Local'})`);
     
-    console.log('🎬 Creating realistic demo scenarios...');
-    const invoices = await invoiceGenerator!.createRealisticScenarios();
+    // Initialize services with better error handling
+    try {
+      await initializeServices();
+      console.log('✅ Services initialized successfully');
+    } catch (initError) {
+      console.error('❌ Failed to initialize services:', initError);
+      throw new Error(`Service initialization failed: ${initError.message}`);
+    }
+    
+    console.log(`🎬 Creating realistic demo scenarios... (Environment: ${isVercel ? 'Vercel' : 'Local'})`);
+    
+    // Create invoices with enhanced error handling
+    let invoices;
+    try {
+      invoices = await invoiceGenerator!.createRealisticScenarios();
+      console.log(`✅ Successfully created ${invoices.length} demo invoices`);
+    } catch (creationError) {
+      console.error('❌ Failed to create demo invoices:', creationError);
+      throw new Error(`Invoice creation failed: ${creationError.message}`);
+    }
 
-    // Process each invoice with Agent Zero
-    if (agentZeroService && agentZeroService.isInitialized()) {
+    if (isLocal) {
+      // Local environment: Full Agent Zero processing
+      console.log('🏠 Local environment: Starting full Agent Zero processing...');
+      
+      // Process each invoice with Agent Zero
+      if (agentZeroService && agentZeroService.isInitialized()) {
+        for (const invoice of invoices) {
+          console.log(`🤖 Processing invoice ${invoice.invoiceNumber} with Agent Zero...`);
+          
+          // Missing PO invoices are now properly configured in the SyntheticInvoiceGenerator
+          if (invoice.scenario === 'missing_po') {
+            console.log(`📝 Missing PO invoice created: ${invoice.invoiceNumber} - ready for AI Agent assignment and communication`);
+          }
+          
+          // Skip Agent Zero processing for missing PO invoices since they're handled by frontend communication
+          if (invoice.scenario === 'missing_po') {
+            console.log(`⏭️ Skipping Agent Zero processing for missing PO invoice ${invoice.invoiceNumber} - will be handled by frontend`);
+            continue;
+          }
+          
+          // Start processing with staggered timing for visual effect
+          setTimeout(() => {
+            // Emit processing started event
+            agentZeroService!.emit('invoice_processing_started', {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              scenario: invoice.scenario,
+              timestamp: new Date()
+            });
+            
+            // Start Agent Zero processing in background
+            agentZeroService!.processInvoice(invoice.id).then(result => {
+              // Emit processing completed event
+              agentZeroService!.emit('invoice_processing_completed', {
+                invoiceId: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                result,
+                timestamp: new Date()
+              });
+            }).catch(error => {
+              console.error('Agent Zero processing error:', error);
+              // For demo purposes, emit a completed event even on error
+              agentZeroService!.emit('invoice_processing_completed', {
+                invoiceId: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                result: {
+                  success: false,
+                  confidence: 0.1,
+                  reasoning: 'Processing encountered issues - manual review required',
+                  workflow: 'manual_review'
+                },
+                timestamp: new Date()
+              });
+            });
+          }, invoices.indexOf(invoice) * 3000); // 3 second delay between each
+        }
+      }
+    } else {
+      // Vercel environment: Simplified processing without Agent Zero
+      console.log('☁️ Vercel environment: Skipping Agent Zero processing, setting basic status...');
+      
+      // Set basic processing status for each invoice
       for (const invoice of invoices) {
-        console.log(`🤖 Processing invoice ${invoice.invoiceNumber} with Agent Zero...`);
-        
-        // Missing PO invoices are now properly configured in the SyntheticInvoiceGenerator
-        if (invoice.scenario === 'missing_po') {
-          console.log(`📝 Missing PO invoice created: ${invoice.invoiceNumber} - ready for AI Agent assignment and communication`);
-        }
-        
-        // Skip Agent Zero processing for missing PO invoices since they're handled by frontend communication
-        if (invoice.scenario === 'missing_po') {
-          console.log(`⏭️ Skipping Agent Zero processing for missing PO invoice ${invoice.invoiceNumber} - will be handled by frontend`);
-          continue;
-        }
-        
-        // Start processing with staggered timing for visual effect
-        setTimeout(() => {
-          // Emit processing started event
-          agentZeroService!.emit('invoice_processing_started', {
-            invoiceId: invoice.id,
-            invoiceNumber: invoice.invoiceNumber,
-            scenario: invoice.scenario,
-            timestamp: new Date()
+        try {
+          // Update invoice with basic completed status
+          await prisma.invoice.update({
+            where: { id: invoice.id },
+            data: {
+              agentProcessingCompleted: new Date(),
+              status: invoice.scenario === 'simple' ? 'approved' : 
+                     invoice.scenario === 'complex' ? 'pending_approval' :
+                     'exception'
+            }
           });
           
-          // Start Agent Zero processing in background
-          agentZeroService!.processInvoice(invoice.id).then(result => {
-            // Emit processing completed event
-            agentZeroService!.emit('invoice_processing_completed', {
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.invoiceNumber,
-              result,
-              timestamp: new Date()
-            });
-          }).catch(error => {
-            console.error('Agent Zero processing error:', error);
-            // For demo purposes, emit a completed event even on error
-            agentZeroService!.emit('invoice_processing_completed', {
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.invoiceNumber,
-              result: {
-                success: false,
-                confidence: 0.1,
-                reasoning: 'Processing encountered issues - manual review required',
-                workflow: 'manual_review'
-              },
-              timestamp: new Date()
-            });
-          });
-        }, invoices.indexOf(invoice) * 3000); // 3 second delay between each
+          console.log(`✅ Set basic status for invoice ${invoice.invoiceNumber}: ${invoice.scenario}`);
+        } catch (updateError) {
+          console.error(`Failed to update invoice ${invoice.invoiceNumber}:`, updateError);
+        }
       }
     }
 
@@ -269,13 +319,15 @@ router.post('/create-realistic-scenarios', async (req, res) => {
       success: true,
       invoices,
       count: invoices.length,
-      message: 'Created realistic demo scenarios'
+      message: `Created realistic demo scenarios${isVercel ? ' (Vercel mode - simplified processing)' : ''}`,
+      environment: isVercel ? 'vercel' : 'local'
     });
   } catch (error) {
     console.error('Error creating realistic scenarios:', error);
     res.status(500).json({ 
       error: 'Failed to create realistic scenarios', 
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      environment: isVercel ? 'vercel' : 'local'
     });
   }
 });

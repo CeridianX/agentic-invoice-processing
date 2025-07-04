@@ -251,6 +251,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
   });
   const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoNotification, setDemoNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -2358,15 +2360,51 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               
               <div className="p-2 space-y-1">
                 <button
-                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3"
+                  className={`w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-700/50 rounded-lg transition-colors flex items-center gap-3 ${demoLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={demoLoading}
                   onClick={async () => {
+                    if (demoLoading) return;
+                    
                     setDemoDropdownOpen(false);
+                    setDemoLoading(true);
+                    setDemoNotification(null);
+                    
                     try {
-                      const response = await fetch(`${apiBaseUrl}/api/demo/create-realistic-scenarios`, { method: 'POST' });
+                      console.log('🎬 Starting demo scenario creation...');
+                      const response = await fetch(`${apiBaseUrl}/api/demo/create-realistic-scenarios`, { 
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      
                       const result = await response.json();
-                      console.log('Demo scenarios created:', result);
+                      
+                      if (response.ok && result.success) {
+                        console.log('✅ Demo scenarios created successfully:', result);
+                        setDemoNotification({
+                          type: 'success',
+                          message: `Successfully created ${result.count} demo invoices! ${result.environment === 'vercel' ? '(Vercel mode)' : ''}`
+                        });
+                        
+                        // Refresh invoice list to show new invoices
+                        await loadInvoices();
+                      } else {
+                        throw new Error(result.details || result.error || 'Unknown error occurred');
+                      }
                     } catch (error) {
-                      console.error('Failed to create demo scenarios:', error);
+                      console.error('❌ Failed to create demo scenarios:', error);
+                      setDemoNotification({
+                        type: 'error',
+                        message: `Failed to create demo scenarios: ${error instanceof Error ? error.message : 'Unknown error'}`
+                      });
+                    } finally {
+                      setDemoLoading(false);
+                      
+                      // Auto-hide notification after 5 seconds
+                      setTimeout(() => {
+                        setDemoNotification(null);
+                      }, 5000);
                     }
                   }}
                 >
@@ -2529,6 +2567,47 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           className="fixed inset-0 z-40" 
           onClick={() => setDemoDropdownOpen(false)}
         />
+      )}
+
+      {/* Demo Notification */}
+      {demoNotification && (
+        <div 
+          className="fixed bottom-4 right-4 z-50 transition-all duration-300 transform animate-fade-in"
+          style={{
+            animation: 'fade-in 0.3s ease-out'
+          }}
+        >
+          <div 
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg backdrop-blur-sm border ${
+              demoNotification.type === 'success' 
+                ? 'bg-green-50/95 border-green-200 text-green-800' 
+                : 'bg-red-50/95 border-red-200 text-red-800'
+            }`}
+            style={{
+              maxWidth: '400px',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05)'
+            }}
+          >
+            {demoNotification.type === 'success' ? (
+              <CheckCircle size={20} className="text-green-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle size={20} className="text-red-600 flex-shrink-0" />
+            )}
+            <div className="flex-1">
+              <p className="text-sm font-medium">{demoNotification.message}</p>
+            </div>
+            <button
+              onClick={() => setDemoNotification(null)}
+              className={`p-1 rounded-full hover:bg-white/50 transition-colors ${
+                demoNotification.type === 'success' 
+                  ? 'text-green-600 hover:text-green-800' 
+                  : 'text-red-600 hover:text-red-800'
+              }`}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Analytics Modal Overlay */}

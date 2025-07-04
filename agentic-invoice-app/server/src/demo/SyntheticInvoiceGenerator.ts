@@ -154,7 +154,10 @@ export class SyntheticInvoiceGenerator {
 
   private createBaseInvoice(): any {
     const now = new Date();
-    const invoiceNumber = `DEMO-${now.getFullYear()}-${String(this.invoiceCounter++).padStart(4, '0')}`;
+    // Use timestamp + random number to ensure uniqueness in serverless environments
+    const timestamp = now.getTime().toString().slice(-6); // Last 6 digits of timestamp
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const invoiceNumber = `DEMO-${now.getFullYear()}-${timestamp}${random}`;
     
     return {
       invoiceNumber,
@@ -198,8 +201,11 @@ export class SyntheticInvoiceGenerator {
   private createDuplicateInvoice(base: any, vendors: any[], options: SyntheticInvoiceOptions): any {
     const vendor = vendors[Math.floor(Math.random() * vendors.length)];
     
-    // Use a recently used invoice number pattern to trigger duplicate detection
-    const duplicateNumber = `DEMO-2024-${String(this.invoiceCounter - 2).padStart(4, '0')}`;
+    // Create a duplicate-style invoice number that's still unique
+    // This simulates a duplicate attempt while avoiding DB constraint issues
+    const now = new Date();
+    const timestamp = now.getTime().toString().slice(-6);
+    const duplicateNumber = `DEMO-${now.getFullYear()}-DUP-${timestamp}`;
     
     return {
       ...base,
@@ -207,7 +213,7 @@ export class SyntheticInvoiceGenerator {
       vendorId: vendor.id,
       amount: options.customAmount || this.randomAmount(500, 2000),
       scenario: 'duplicate',
-      notes: 'Demo: Duplicate invoice for fraud detection testing'
+      notes: 'Demo: Suspicious duplicate-style invoice for fraud detection testing'
     };
   }
 

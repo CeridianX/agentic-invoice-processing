@@ -452,12 +452,19 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         {showBubble && !isExpanded && (
           <motion.button
             onClick={activateCara}
-            className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+            className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white"
+            style={{
+              background: 'linear-gradient(135deg, #a855f7, #ec4899)'
+            }}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ 
+              scale: 1.05,
+              background: 'linear-gradient(135deg, #9333ea, #db2777)',
+              transition: { duration: 0.3, ease: "easeOut" }
+            }}
             whileTap={{ scale: 0.95 }}
           >
           <div className="relative">

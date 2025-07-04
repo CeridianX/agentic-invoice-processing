@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { MessageCircle, Mic, MicOff, X, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,6 +37,7 @@ export default function CaraVoiceWidget({
   }>>([]);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [agentStatus, setAgentStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
+  const chatAreaRef = useRef<HTMLDivElement>(null);
 
   // ElevenLabs Conversational AI hook (matching working Jarvis approach)
   const conversation = useConversation({
@@ -162,6 +163,13 @@ export default function CaraVoiceWidget({
     return null;
   }, []);
 
+  // Scroll chat area to bottom
+  const scrollToBottom = useCallback(() => {
+    if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    }
+  }, []);
+
   // Add message to conversation history
   const addToHistory = (type: 'user' | 'cara', message: string) => {
     setConversationHistory(prev => [...prev, {
@@ -170,6 +178,13 @@ export default function CaraVoiceWidget({
       timestamp: new Date()
     }]);
   };
+
+  // Auto-scroll when conversation history changes
+  useEffect(() => {
+    // Small delay to ensure DOM has updated
+    const timeoutId = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeoutId);
+  }, [conversationHistory, scrollToBottom]);
 
   // Create dynamic configuration for Cara with invoice context
   const createCaraConfig = (invoiceData: InvoiceData | null) => {
@@ -392,7 +407,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
             </div>
 
             {/* Chat Area */}
-            <div className="h-64 overflow-y-auto p-4 space-y-3">
+            <div ref={chatAreaRef} className="h-64 overflow-y-auto p-4 space-y-3">
               {conversationHistory.length === 0 ? (
                 <div className="text-center text-gray-500 text-sm py-8">
                   <MessageCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
@@ -462,9 +477,9 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                         <button
                           onClick={restartCara}
                           className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
-                          title="Restart conversation"
+                          title="Wake up Cara"
                         >
-                          Restart
+                          Wake Up
                         </button>
                       )}
                       <button

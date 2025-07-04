@@ -230,21 +230,28 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
   // Initialize Cara when activated
   const activateCara = async () => {
     try {
-      setIsActive(true);
+      // Show chat window immediately with history
       setIsExpanded(true);
       
-      // Fetch invoice data for context
-      await fetchInvoiceData();
-      
-      console.log('🎯 Starting Cara session with agent ID:', import.meta.env.VITE_ELEVENLABS_AGENT_ID);
-      
-      // Start conversation with agent ID (matching working Jarvis approach)
-      const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
-      await conversation.startSession({
-        agentId: agentId
-      });
-      
-      console.log('🎯 Cara activated successfully');
+      // Only start new session if not already active
+      if (!isActive) {
+        setIsActive(true);
+        
+        // Fetch invoice data for context
+        await fetchInvoiceData();
+        
+        console.log('🎯 Starting Cara session with agent ID:', import.meta.env.VITE_ELEVENLABS_AGENT_ID);
+        
+        // Start conversation with agent ID (matching working Jarvis approach)
+        const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
+        await conversation.startSession({
+          agentId: agentId
+        });
+        
+        console.log('🎯 Cara activated successfully');
+      } else {
+        console.log('🎯 Cara already active, showing chat window');
+      }
     } catch (error) {
       console.error('Failed to activate Cara:', error);
       setIsActive(false);
@@ -252,7 +259,13 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
     }
   };
 
-  // Deactivate Cara
+  // Close chat window (don't end session to preserve conversation)
+  const closeChatWindow = () => {
+    setIsExpanded(false);
+    console.log('🎯 Cara chat window closed');
+  };
+
+  // Fully deactivate Cara (end session and close window)
   const deactivateCara = async () => {
     try {
       if (conversation.status === 'connected') {
@@ -261,6 +274,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
       setIsActive(false);
       setIsExpanded(false);
       setAgentStatus('idle');
+      setConversationHistory([]); // Clear history when fully deactivating
       console.log('🎯 Cara deactivated');
     } catch (error) {
       console.error('Failed to deactivate Cara:', error);
@@ -334,7 +348,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                 </div>
               </div>
               <button
-                onClick={deactivateCara}
+                onClick={closeChatWindow}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -382,26 +396,38 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                   {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
                 
-                <div className="flex items-center space-x-2">
-                  {agentStatus === 'listening' && (
-                    <div className="flex space-x-1">
-                      <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse"></div>
-                      <div className="w-1 h-3 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                      <div className="w-1 h-5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                      <div className="w-1 h-2 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center space-x-2">
+                    {agentStatus === 'listening' && (
+                      <div className="flex space-x-1">
+                        <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse"></div>
+                        <div className="w-1 h-3 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-1 h-5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-1 h-2 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                      </div>
+                    )}
+                    <div className={`text-xs font-medium transition-colors ${
+                      agentStatus === 'listening' ? 'text-green-600' :
+                      agentStatus === 'thinking' ? 'text-yellow-600' :
+                      agentStatus === 'speaking' ? 'text-blue-600' :
+                      'text-gray-500'
+                    }`}>
+                      {agentStatus === 'listening' ? 'Listening for your voice...' : 
+                       agentStatus === 'thinking' ? 'Processing your request...' : 
+                       agentStatus === 'speaking' ? 'Cara is speaking...' : 
+                       isActive ? 'Ready to help' : 'Inactive'}
                     </div>
-                  )}
-                  <div className={`text-xs font-medium transition-colors ${
-                    agentStatus === 'listening' ? 'text-green-600' :
-                    agentStatus === 'thinking' ? 'text-yellow-600' :
-                    agentStatus === 'speaking' ? 'text-blue-600' :
-                    'text-gray-500'
-                  }`}>
-                    {agentStatus === 'listening' ? 'Listening for your voice...' : 
-                     agentStatus === 'thinking' ? 'Processing your request...' : 
-                     agentStatus === 'speaking' ? 'Cara is speaking...' : 
-                     isActive ? 'Ready to help' : 'Inactive'}
                   </div>
+                  
+                  {isActive && (
+                    <button
+                      onClick={deactivateCara}
+                      className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                      title="End conversation"
+                    >
+                      End
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

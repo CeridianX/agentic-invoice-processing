@@ -5,12 +5,12 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // Webhook endpoint for ElevenLabs Conversational AI tools
-// This will be called by Jarvis when it needs real-time invoice data
+// This will be called by Cara when it needs real-time invoice data
 
 // Get invoice portfolio summary
 router.post('/get-portfolio-summary', async (req, res) => {
   try {
-    console.log('🤖 Jarvis requesting portfolio summary...');
+    console.log('🤖 Cara requesting portfolio summary...');
     
     const [totalCount, pendingCount, approvedCount, exceptionCount, totalAmountResult] = await Promise.all([
       prisma.invoice.count(),
@@ -32,14 +32,14 @@ router.post('/get-portfolio-summary', async (req, res) => {
       exceptionRate: totalCount > 0 ? ((exceptionCount / totalCount) * 100).toFixed(1) : '0'
     };
 
-    console.log('📊 Returning portfolio summary to Jarvis:', summary);
+    console.log('📊 Returning portfolio summary to Cara:', summary);
 
     res.json({
       result: `Portfolio Summary: ${totalCount} total invoices worth $${summary.totalAmount.toLocaleString()}. ${pendingCount} pending, ${approvedCount} approved (${summary.approvalRate}% approval rate), ${exceptionCount} exceptions requiring attention (${summary.exceptionRate}% exception rate).`
     });
 
   } catch (error) {
-    console.error('Error getting portfolio summary for Jarvis:', error);
+    console.error('Error getting portfolio summary for Cara:', error);
     res.status(500).json({
       error: 'Unable to retrieve portfolio data at this time'
     });
@@ -50,7 +50,7 @@ router.post('/get-portfolio-summary', async (req, res) => {
 router.post('/get-invoice-details', async (req, res) => {
   try {
     const { invoiceNumber, invoiceId } = req.body;
-    console.log(`🤖 Jarvis requesting invoice details for: ${invoiceNumber || invoiceId}`);
+    console.log(`🤖 Cara requesting invoice details for: ${invoiceNumber || invoiceId}`);
 
     if (!invoiceNumber && !invoiceId) {
       return res.status(400).json({
@@ -106,12 +106,12 @@ router.post('/get-invoice-details', async (req, res) => {
 
     const result = `Invoice ${invoice.invoiceNumber} from ${invoice.vendor?.name || 'Unknown Vendor'} for ${formattedAmount} is currently ${statusDescription}. Received ${daysOld} days ago.${invoice.hasIssues ? ' This invoice has been flagged for review due to validation issues.' : ''}${invoice.agentReasoning ? ` AI Analysis: ${invoice.agentReasoning}` : ''}`;
 
-    console.log('📄 Returning invoice details to Jarvis');
+    console.log('📄 Returning invoice details to Cara');
 
     res.json({ result });
 
   } catch (error) {
-    console.error('Error getting invoice details for Jarvis:', error);
+    console.error('Error getting invoice details for Cara:', error);
     res.status(500).json({
       error: 'Unable to retrieve invoice details at this time'
     });
@@ -122,7 +122,7 @@ router.post('/get-invoice-details', async (req, res) => {
 router.post('/get-invoices-by-status', async (req, res) => {
   try {
     const { status } = req.body;
-    console.log(`🤖 Jarvis requesting invoices with status: ${status}`);
+    console.log(`🤖 Cara requesting invoices with status: ${status}`);
 
     let whereClause: any = {};
     let statusFilter = status?.toLowerCase() || '';
@@ -173,12 +173,12 @@ router.post('/get-invoices-by-status', async (req, res) => {
       ).join(', ')}.`;
     }
 
-    console.log(`📋 Returning ${invoices.length} invoices to Jarvis`);
+    console.log(`📋 Returning ${invoices.length} invoices to Cara`);
 
     res.json({ result });
 
   } catch (error) {
-    console.error('Error getting invoices by status for Jarvis:', error);
+    console.error('Error getting invoices by status for Cara:', error);
     res.status(500).json({
       error: 'Unable to retrieve invoices at this time'
     });
@@ -188,7 +188,7 @@ router.post('/get-invoices-by-status', async (req, res) => {
 // Get urgent/overdue invoices
 router.post('/get-urgent-invoices', async (req, res) => {
   try {
-    console.log('🤖 Jarvis requesting urgent invoices...');
+    console.log('🤖 Cara requesting urgent invoices...');
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -238,12 +238,12 @@ router.post('/get-urgent-invoices', async (req, res) => {
       result += `Priority items: ${urgentList}.`;
     }
 
-    console.log(`🚨 Returning ${urgentInvoices.length} urgent invoices to Jarvis`);
+    console.log(`🚨 Returning ${urgentInvoices.length} urgent invoices to Cara`);
 
     res.json({ result });
 
   } catch (error) {
-    console.error('Error getting urgent invoices for Jarvis:', error);
+    console.error('Error getting urgent invoices for Cara:', error);
     res.status(500).json({
       error: 'Unable to retrieve urgent invoices at this time'
     });
@@ -253,7 +253,7 @@ router.post('/get-urgent-invoices', async (req, res) => {
 // Get recent invoice activity
 router.post('/get-recent-activity', async (req, res) => {
   try {
-    console.log('🤖 Jarvis requesting recent activity...');
+    console.log('🤖 Cara requesting recent activity...');
 
     const recentInvoices = await prisma.invoice.findMany({
       include: { vendor: true },
@@ -282,12 +282,12 @@ router.post('/get-recent-activity', async (req, res) => {
 
     result += `Recent invoices: ${recentList}.`;
 
-    console.log(`📈 Returning recent activity to Jarvis`);
+    console.log(`📈 Returning recent activity to Cara`);
 
     res.json({ result });
 
   } catch (error) {
-    console.error('Error getting recent activity for Jarvis:', error);
+    console.error('Error getting recent activity for Cara:', error);
     res.status(500).json({
       error: 'Unable to retrieve recent activity at this time'
     });

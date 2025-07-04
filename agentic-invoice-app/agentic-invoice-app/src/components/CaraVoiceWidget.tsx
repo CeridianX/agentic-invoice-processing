@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { MessageCircle, Mic, MicOff, X, Send, Bot } from 'lucide-react';
+import { MessageCircle, Mic, MicOff, X, Send, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CaraVoiceWidgetProps {
@@ -411,7 +411,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                           ease: "easeInOut"
                         }}
                       >
-                        <Bot className="w-6 h-6 text-white" />
+                        <Sparkles className="w-6 h-6 text-white" />
                       </motion.div>
                       {/* Pulse ring */}
                       <motion.div

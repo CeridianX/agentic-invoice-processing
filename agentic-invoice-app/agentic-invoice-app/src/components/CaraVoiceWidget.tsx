@@ -39,6 +39,7 @@ export default function CaraVoiceWidget({
 
   // ElevenLabs Conversational AI hook
   const conversation = useConversation({
+    agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID,
     onConnect: () => {
       console.log('🤖 Cara connected');
       setAgentStatus('listening');
@@ -46,7 +47,18 @@ export default function CaraVoiceWidget({
     onDisconnect: () => {
       console.log('🤖 Cara disconnected');
       setAgentStatus('idle');
-      setIsActive(false);
+      
+      // If Cara was active and this wasn't a manual disconnect, try to reconnect
+      if (isActive && isExpanded) {
+        console.log('🔄 Attempting to reconnect Cara...');
+        setTimeout(() => {
+          if (isActive && conversation.status === 'disconnected') {
+            conversation.startSession().catch(error => {
+              console.error('Failed to reconnect Cara:', error);
+            });
+          }
+        }, 2000);
+      }
     },
     onMessage: (message) => {
       console.log('🗣️ Cara said:', message);
@@ -54,6 +66,22 @@ export default function CaraVoiceWidget({
                          message?.message || message?.content || 'Message received';
       addToHistory('cara', messageText);
       setAgentStatus('listening');
+    },
+    onModeChange: (mode) => {
+      console.log('🔄 Cara mode changed:', mode);
+      switch (mode.mode) {
+        case 'listening':
+          setAgentStatus('listening');
+          break;
+        case 'thinking':
+          setAgentStatus('thinking');
+          break;
+        case 'speaking':
+          setAgentStatus('speaking');
+          break;
+        default:
+          setAgentStatus('idle');
+      }
     },
     onError: (error) => {
       console.error('🚨 Cara error:', error);
@@ -204,17 +232,19 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
       setIsActive(true);
       setIsExpanded(true);
       
-      // Fetch invoice data and create dynamic config
-      const invoiceData = await fetchInvoiceData();
-      const config = createCaraConfig(invoiceData);
+      // Fetch invoice data for context
+      await fetchInvoiceData();
       
-      // Start conversation with dynamic configuration
-      await conversation.startSession(config);
+      console.log('🎯 Starting Cara session with agent ID:', import.meta.env.VITE_ELEVENLABS_AGENT_ID);
       
-      console.log('🎯 Cara activated with invoice context');
+      // Start conversation with existing agent
+      await conversation.startSession();
+      
+      console.log('🎯 Cara activated successfully');
     } catch (error) {
       console.error('Failed to activate Cara:', error);
       setIsActive(false);
+      setIsExpanded(false);
     }
   };
 
@@ -258,7 +288,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
   const statusIndicator = getStatusIndicator();
 
   return (
-    <div className="fixed top-20 right-6 z-50">
+    <div className="fixed top-20 right-8 z-50">
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -272,14 +302,31 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    agentStatus === 'listening' ? 'bg-gradient-to-br from-green-400 to-green-500 animate-pulse' :
+                    agentStatus === 'thinking' ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 animate-pulse' :
+                    agentStatus === 'speaking' ? 'bg-gradient-to-br from-blue-400 to-blue-500 animate-pulse' :
+                    'bg-gradient-to-br from-purple-500 to-pink-500'
+                  }`}>
                     <MessageCircle className="w-4 h-4 text-white" />
                   </div>
-                  <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full ${statusIndicator.color} ${statusIndicator.pulse ? 'animate-pulse' : ''}`} />
+                  {isActive && (
+                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${statusIndicator.color} ${statusIndicator.pulse ? 'animate-pulse' : ''}`} />
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Cara</h3>
-                  <p className="text-xs text-gray-500 capitalize">{agentStatus}</p>
+                  <p className={`text-xs font-medium capitalize transition-colors ${
+                    agentStatus === 'listening' ? 'text-green-600' :
+                    agentStatus === 'thinking' ? 'text-yellow-600' :
+                    agentStatus === 'speaking' ? 'text-blue-600' :
+                    'text-gray-500'
+                  }`}>
+                    {agentStatus === 'listening' ? '🎤 Listening...' :
+                     agentStatus === 'thinking' ? '🧠 Processing...' :
+                     agentStatus === 'speaking' ? '🗣️ Speaking...' :
+                     agentStatus}
+                  </p>
                 </div>
               </div>
               <button
@@ -319,10 +366,10 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
 
             {/* Controls */}
             <div className="p-4 border-t border-gray-100">
-              <div className="flex items-center justify-center space-x-4">
+              <div className="flex items-center justify-between">
                 <button
                   onClick={toggleMute}
-                  className={`p-2 rounded-full transition-colors ${
+                  className={`p-2 rounded-full transition-all duration-200 ${
                     isMuted 
                       ? 'bg-red-100 text-red-600 hover:bg-red-200' 
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -330,10 +377,27 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                 >
                   {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
-                <div className="text-xs text-gray-500">
-                  {agentStatus === 'listening' ? 'Listening...' : 
-                   agentStatus === 'thinking' ? 'Processing...' : 
-                   agentStatus === 'speaking' ? 'Speaking...' : 'Ready'}
+                
+                <div className="flex items-center space-x-2">
+                  {agentStatus === 'listening' && (
+                    <div className="flex space-x-1">
+                      <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse"></div>
+                      <div className="w-1 h-3 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                      <div className="w-1 h-5 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                      <div className="w-1 h-2 bg-green-400 rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                    </div>
+                  )}
+                  <div className={`text-xs font-medium transition-colors ${
+                    agentStatus === 'listening' ? 'text-green-600' :
+                    agentStatus === 'thinking' ? 'text-yellow-600' :
+                    agentStatus === 'speaking' ? 'text-blue-600' :
+                    'text-gray-500'
+                  }`}>
+                    {agentStatus === 'listening' ? 'Listening for your voice...' : 
+                     agentStatus === 'thinking' ? 'Processing your request...' : 
+                     agentStatus === 'speaking' ? 'Cara is speaking...' : 
+                     isActive ? 'Ready to help' : 'Inactive'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -341,26 +405,22 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         )}
       </AnimatePresence>
 
-      {/* Floating Action Button */}
-      <motion.button
-        onClick={isActive ? deactivateCara : activateCara}
-        className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
-          isActive 
-            ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white' 
-            : 'bg-white text-gray-600 hover:bg-gray-50'
-        }`}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        {isActive ? (
+      {/* Floating Action Button - Only show when not expanded */}
+      {!isExpanded && (
+        <motion.button
+          onClick={activateCara}
+          className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
           <div className="relative">
             <MessageCircle className="w-6 h-6" />
-            <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${statusIndicator.color} ${statusIndicator.pulse ? 'animate-pulse' : ''}`} />
+            {isActive && (
+              <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${statusIndicator.color} ${statusIndicator.pulse ? 'animate-pulse' : ''}`} />
+            )}
           </div>
-        ) : (
-          <MessageCircle className="w-6 h-6" />
-        )}
-      </motion.button>
+        </motion.button>
+      )}
     </div>
   );
 }

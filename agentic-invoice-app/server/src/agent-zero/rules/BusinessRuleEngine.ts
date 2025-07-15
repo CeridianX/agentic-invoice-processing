@@ -313,15 +313,25 @@ export class BusinessRuleEngine {
       return false;
     }
 
-    // Vendor-based conditions
-    if (conditions.minTrustLevel && context.vendor?.trustLevel !== conditions.minTrustLevel) {
-      if (conditions.minTrustLevel === 'high' && context.vendor?.trustLevel !== 'high') {
+    // Vendor-based conditions - check if vendor meets minimum trust level
+    if (conditions.minTrustLevel) {
+      const trustLevels = { 'low': 1, 'medium': 2, 'high': 3 };
+      const requiredLevel = trustLevels[conditions.minTrustLevel as keyof typeof trustLevels] || 0;
+      const vendorLevel = trustLevels[context.vendor?.trustLevel as keyof typeof trustLevels] || 0;
+      
+      if (vendorLevel < requiredLevel) {
         return false;
       }
     }
     if (conditions.vendorStatus) {
-      if (conditions.vendorStatus === 'new' && context.vendor?.id) {
-        return false; // Not a new vendor if it has an ID
+      if (conditions.vendorStatus === 'new') {
+        // Check if vendor is actually new (low processing history or recent creation)
+        const isNewVendor = context.vendor?.trustLevel === 'low' || 
+                           context.vendor?.averageProcessingTime === undefined ||
+                           context.vendor?.averageProcessingTime < 3;
+        if (!isNewVendor) {
+          return false; // Rule requires new vendor but this isn't new
+        }
       }
     }
 

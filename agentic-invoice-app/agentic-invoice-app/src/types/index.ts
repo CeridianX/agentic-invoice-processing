@@ -18,14 +18,12 @@ export interface Invoice {
   id: string;
   vendorId: string;
   invoiceNumber: string;
-  invoiceDate: string;
   amount: number;
   status: string;
-  approvalStatus: string;
-  assignedTo?: string;
   poId?: string;
   receivedDate: string;
   dueDate: string;
+  invoiceDate: string;
   paymentTerms: string;
   hasIssues: boolean;
   variancePercentage?: number;

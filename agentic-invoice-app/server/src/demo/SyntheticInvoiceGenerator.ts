@@ -69,6 +69,13 @@ export class SyntheticInvoiceGenerator {
         expectedOutcome: 'Enhanced OCR processing',
         processingTime: '6-10s',
         complexity: 'complex'
+      },
+      {
+        name: 'missing_po',
+        description: 'Invoice with missing/invalid PO reference',
+        expectedOutcome: 'AI queries procurement team',
+        processingTime: 'Waiting for internal response',
+        complexity: 'complex'
       }
     ];
   }
@@ -137,6 +144,9 @@ export class SyntheticInvoiceGenerator {
       case 'poor_quality':
         return this.createPoorQualityInvoice(baseInvoice, vendors, options);
       
+      case 'missing_po':
+        return this.createMissingPOInvoice(baseInvoice, vendors, options);
+      
       default:
         return this.createSimpleInvoice(baseInvoice, vendors, options);
     }
@@ -144,7 +154,10 @@ export class SyntheticInvoiceGenerator {
 
   private createBaseInvoice(): any {
     const now = new Date();
-    const invoiceNumber = `DEMO-${now.getFullYear()}-${String(this.invoiceCounter++).padStart(4, '0')}`;
+    // Use timestamp + random number to ensure uniqueness in serverless environments
+    const timestamp = now.getTime().toString().slice(-6); // Last 6 digits of timestamp
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const invoiceNumber = `DEMO-${now.getFullYear()}-${timestamp}${random}`;
     
     return {
       invoiceNumber,
@@ -188,8 +201,11 @@ export class SyntheticInvoiceGenerator {
   private createDuplicateInvoice(base: any, vendors: any[], options: SyntheticInvoiceOptions): any {
     const vendor = vendors[Math.floor(Math.random() * vendors.length)];
     
-    // Use a recently used invoice number pattern to trigger duplicate detection
-    const duplicateNumber = `DEMO-2024-${String(this.invoiceCounter - 2).padStart(4, '0')}`;
+    // Create a duplicate-style invoice number that's still unique
+    // This simulates a duplicate attempt while avoiding DB constraint issues
+    const now = new Date();
+    const timestamp = now.getTime().toString().slice(-6);
+    const duplicateNumber = `DEMO-${now.getFullYear()}-DUP-${timestamp}`;
     
     return {
       ...base,
@@ -197,7 +213,7 @@ export class SyntheticInvoiceGenerator {
       vendorId: vendor.id,
       amount: options.customAmount || this.randomAmount(500, 2000),
       scenario: 'duplicate',
-      notes: 'Demo: Duplicate invoice for fraud detection testing'
+      notes: 'Demo: Suspicious duplicate-style invoice for fraud detection testing'
     };
   }
 
@@ -239,6 +255,30 @@ export class SyntheticInvoiceGenerator {
     };
   }
 
+  private createMissingPOInvoice(base: any, vendors: any[], options: SyntheticInvoiceOptions): any {
+    // Use a mix of trusted and medium vendors for this scenario
+    const eligibleVendors = vendors.filter(v => ['high', 'medium'].includes(v.trustLevel));
+    const vendor = eligibleVendors[Math.floor(Math.random() * eligibleVendors.length)];
+    
+    return {
+      ...base,
+      vendorId: vendor.id,
+      amount: options.customAmount || this.randomAmount(1500, 8000), // Medium amounts
+      scenario: 'missing_po',
+      hasIssues: true, // Mark as having issues for exception counting
+      status: 'pending_internal_review', // New status for AI internal queries
+      poId: null, // Explicitly no PO reference
+      notes: 'Invoice references PO "PO-2024-7839" which is not found in our system. AI has queried procurement team for clarification.',
+      // Agent Zero specific fields for this scenario
+      agentProcessingStarted: new Date(), // Processing has started
+      agentProcessingCompleted: new Date(), // Mark as completed to allow communication trigger
+      agentConfidence: 0.85, // High confidence that this is the issue
+      agentReasoning: 'Invoice validation failed due to missing PO reference "PO-2024-7839". Automatically generated query to procurement team for clarification. Awaiting response.',
+      workflowRoute: 'internal_query',
+      processingTimeMs: null // Will be set when internal response is received
+    };
+  }
+
   private randomAmount(min: number, max: number): number {
     return Math.round((Math.random() * (max - min) + min) * 100) / 100;
   }
@@ -254,7 +294,8 @@ export class SyntheticInvoiceGenerator {
       { scenario: 'simple', description: 'Office supplies - auto approval' },
       { scenario: 'complex', description: 'New vendor equipment purchase' },
       { scenario: 'learning', description: 'Recurring service invoice' },
-      { scenario: 'exceptional', description: 'Major infrastructure investment' }
+      { scenario: 'exceptional', description: 'Major infrastructure investment' },
+      { scenario: 'missing_po', description: 'Invoice with missing PO - AI queries procurement' }
     ];
 
     const invoices = [];

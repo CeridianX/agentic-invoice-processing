@@ -65,6 +65,16 @@ export class AgentZeroService extends EventEmitter {
       this.emit('plan_created', data);
     });
 
+    this.orchestrator.on('coordinator_started', (data) => {
+      console.log(`Agent Zero: Coordinator started - ${data.action}`);
+      this.emit('coordinator_started', data);
+    });
+
+    this.orchestrator.on('coordinator_completed', (data) => {
+      console.log(`Agent Zero: Coordinator completed - Plan created with ${data.result.stepsCount} steps`);
+      this.emit('coordinator_completed', data);
+    });
+
     this.orchestrator.on('step_started', (data) => {
       console.log(`Agent Zero: Step started - ${data.step.agentName}: ${data.step.action}`);
       this.emit('step_started', data);
@@ -88,6 +98,27 @@ export class AgentZeroService extends EventEmitter {
     this.orchestrator.on('processing_error', (data) => {
       console.error(`Agent Zero: Processing error for invoice ${data.invoiceId}: ${data.error}`);
       this.emit('processing_error', data);
+    });
+
+    // Communication event handlers
+    this.orchestrator.on('communication_initiated', (data) => {
+      console.log(`Agent Zero: Communication initiated for invoice ${data.invoiceId}`);
+      this.emit('communication_initiated', data);
+    });
+
+    this.orchestrator.on('communication_sent', (data) => {
+      console.log(`Agent Zero: Communication sent - ${data.subject}`);
+      this.emit('communication_sent', data);
+    });
+
+    this.orchestrator.on('communication_received', (data) => {
+      console.log(`Agent Zero: Communication response received for ${data.scenario}`);
+      this.emit('communication_received', data);
+    });
+
+    this.orchestrator.on('communication_resolved', (data) => {
+      console.log(`Agent Zero: Communication resolved for invoice ${data.invoiceId}`);
+      this.emit('communication_resolved', data);
     });
   }
 
@@ -221,13 +252,18 @@ export class AgentZeroService extends EventEmitter {
       let status = 'processed';
       let approvalStatus = 'pending';
 
+      // Handle validation issues - require review but don't auto-reject
       if (!result.validation.isValid) {
         status = 'requires_review';
-        approvalStatus = 'rejected';
-      } else if (result.workflow.approvalRequired) {
+        approvalStatus = 'pending'; // Requires human review, not auto-rejected
+      } 
+      // Handle cases where validation passed but approval is needed
+      else if (result.workflow.approvalRequired) {
         status = 'pending_approval';
         approvalStatus = 'pending';
-      } else {
+      } 
+      // Handle auto-approval cases (small amounts from trusted vendors)
+      else {
         status = 'approved';
         approvalStatus = 'approved';
       }
@@ -275,7 +311,8 @@ export class AgentZeroService extends EventEmitter {
       const updateData: any = {
         status,
         approvalStatus,
-        notes: notes.join('\n')
+        notes: notes.join('\n'),
+        agentProcessingCompleted: new Date()
       };
 
       if (assignedTo) {

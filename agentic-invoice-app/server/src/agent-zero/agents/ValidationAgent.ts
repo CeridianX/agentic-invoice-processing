@@ -54,9 +54,12 @@ You should:
     - Vendor Verification: ${validationResults.vendorVerification}
     - Date Validation: ${validationResults.dateValidation}
     - Mathematical Check: ${validationResults.mathCheck}
+    - PO Validation: ${validationResults.poValidation}
     
     Overall Risk Level: ${validationResults.riskLevel}
-    Confidence Score: ${(validationResults.confidence * 100).toFixed(1)}%`;
+    Confidence Score: ${(validationResults.confidence * 100).toFixed(1)}%
+    
+    ${validationResults.requiresCommunication ? `⚠️ Communication Required: ${validationResults.communicationReason}` : ''}`;
 
     if (validationResults.issues.length > 0) {
       reasoning += `\n\nIssues Identified:`;
@@ -82,10 +85,13 @@ You should:
       vendorVerification: 'PASS', 
       dateValidation: 'PASS',
       mathCheck: 'PASS',
+      poValidation: 'PASS',
       riskLevel: 'LOW' as 'LOW' | 'MEDIUM' | 'HIGH',
       confidence: 0.9,
       issues: [] as string[],
-      recommendations: [] as string[]
+      recommendations: [] as string[],
+      requiresCommunication: false,
+      communicationReason: null as string | null
     };
 
     if (!invoice) {
@@ -94,8 +100,59 @@ You should:
       return results;
     }
 
-    // Simulate various validation checks
+    // Extract scenario and vendor info for scenario-based validation
+    const scenario = invoice.scenario || 'simple';
     const amount = invoice.amount || 0;
+    const vendorTrust = invoice.vendor?.trustLevel || 'medium';
+    const hasIssues = invoice.hasIssues || false;
+    
+    console.log(`ValidationAgent: Processing ${scenario} scenario with ${vendorTrust} trust vendor, amount: ${amount}`);
+
+    // Scenario-specific validation logic
+    if (scenario === 'duplicate') {
+      results.duplicateCheck = 'FAIL';
+      results.issues.push('Duplicate invoice number detected');
+      results.issues.push('Similar invoice found within 30 days');
+      results.riskLevel = 'HIGH';
+      results.confidence = 0.65;
+      return results;
+    }
+
+    if (scenario === 'poor_quality' || hasIssues) {
+      results.vendorVerification = 'WARNING';
+      results.issues.push('Document quality poor');
+      results.issues.push('OCR confidence low');
+      results.issues.push('Some fields unclear');
+      results.riskLevel = 'MEDIUM';
+      results.confidence = 0.72;
+      return results;
+    }
+
+    if (scenario === 'exceptional' && amount > 20000) {
+      results.amountValidation = 'WARNING';
+      results.issues.push('High-value transaction');
+      results.issues.push('Requires additional verification');
+      results.riskLevel = 'HIGH';
+      results.confidence = 0.88;
+      results.recommendations.push('Valid but requires executive approval');
+      return results;
+    }
+
+    // Missing PO scenario - requires communication
+    if (scenario === 'missing_po') {
+      results.poValidation = 'FAIL';
+      results.issues.push('Purchase Order reference missing or invalid');
+      results.issues.push('PO "PO-2024-7839" not found in system');
+      results.riskLevel = 'MEDIUM';
+      results.confidence = 0.85; // High confidence in detecting the issue
+      results.requiresCommunication = true;
+      results.communicationReason = 'missing_po_inquiry';
+      results.recommendations.push('Query procurement team for PO clarification');
+      results.recommendations.push('Hold invoice processing until PO resolved');
+      return results;
+    }
+
+    // Standard validations for simple/complex/learning scenarios
     
     // Amount validation
     if (amount <= 0) {
@@ -107,11 +164,17 @@ You should:
       results.recommendations.push('High-value invoice requires additional approval');
     }
 
-    // Vendor validation
-    if (!invoice.vendorName || invoice.vendorName === 'Unknown') {
+    // Vendor validation with trust level consideration
+    const vendorName = invoice.vendorName || invoice.vendor?.name || 'Unknown';
+    if (!vendorName || vendorName === 'Unknown') {
       results.vendorVerification = 'FAIL';
       results.issues.push('Vendor information missing or incomplete');
       results.confidence -= 0.2;
+    } else if (vendorTrust === 'low') {
+      results.vendorVerification = 'WARNING';
+      results.issues.push('Low trust vendor requires additional verification');
+      results.riskLevel = 'MEDIUM';
+      results.confidence -= 0.1;
     }
 
     // Date validation
@@ -125,17 +188,16 @@ You should:
 
     // Enhanced validation for comprehensive level
     if (level === 'comprehensive') {
-      // Simulate additional checks
-      if (Math.random() > 0.8) {
-        results.duplicateCheck = 'WARNING';
-        results.issues.push('Potential duplicate - similar invoice found within 30 days');
-        results.riskLevel = 'MEDIUM';
-      }
-
-      if (invoice.vendorName && invoice.vendorName.includes('New')) {
+      if (vendorName && vendorName.includes('New')) {
         results.riskLevel = 'MEDIUM';
         results.recommendations.push('New vendor - verify credentials before payment');
       }
+    }
+
+    // For simple scenarios with high-trust vendors and reasonable amounts, ensure high confidence
+    if (scenario === 'simple' && vendorTrust === 'high' && amount < 1000 && results.issues.length === 0) {
+      results.confidence = 0.95;
+      results.recommendations.push('Standard processing - approved for auto-payment');
     }
 
     // Adjust confidence based on issues
@@ -186,10 +248,13 @@ You should:
         amountValidation: validationResults.amountValidation,
         vendorVerification: validationResults.vendorVerification,
         dateValidation: validationResults.dateValidation,
-        mathCheck: validationResults.mathCheck
+        mathCheck: validationResults.mathCheck,
+        poValidation: validationResults.poValidation
       },
       issues: validationResults.issues,
       recommendations: validationResults.recommendations,
+      requiresCommunication: validationResults.requiresCommunication,
+      communicationReason: validationResults.communicationReason,
       timestamp: new Date()
     };
   }

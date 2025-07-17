@@ -1006,10 +1006,10 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       processStatus = 'Processing';
       statusClass = 'bg-blue-100 text-blue-700';
     }
-    // If AI is querying internal team
+    // If AI is querying internal team (subset of exceptions)
     else if (invoice.status === 'pending_internal_review') {
       processStatus = 'Internal Query';
-      statusClass = 'bg-blue-100 text-blue-700';
+      statusClass = 'bg-orange-100 text-orange-700';
     }
     // If there are exceptions/issues to resolve
     else if (invoice.status === 'requires_review' || invoice.status === 'pending_review' || invoice.hasIssues) {
@@ -1079,6 +1079,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       >
         {processStatus === 'Processing' && <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>}
         {processStatus === 'Exception' && <span className="text-orange-600 mr-1">⚠</span>}
+        {processStatus === 'Internal Query' && <span className="text-orange-600 mr-1">⚠</span>}
         {processStatus}
       </span>
     );
@@ -2395,7 +2396,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-xs truncate">
-                        {invoice.status === 'pending_internal_review' ? (
+                        {invoice.assignedTo === 'ai-invoice-agent' ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700 transition-all duration-300 ease-in-out">
                             AI Agent
                           </span>

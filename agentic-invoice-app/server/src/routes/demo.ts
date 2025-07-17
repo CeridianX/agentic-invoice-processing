@@ -11,6 +11,13 @@ let agentZeroService: AgentZeroService | null = null;
 
 // Railway environment - full Agent Zero support available
 
+// Stub function for WebSocket broadcasting
+// In production, this should be connected to the actual WebSocket server
+const broadcastToClients = (message: any) => {
+  // This is a placeholder - in production, this would broadcast to WebSocket clients
+  console.log('Broadcasting message:', message);
+};
+
 // Initialize services
 const initializeServices = async () => {
   if (!invoiceGenerator) {

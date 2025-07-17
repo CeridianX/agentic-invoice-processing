@@ -2293,7 +2293,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No invoices found</h3>
-          <p className="text-gray-500">Make sure your backend server is running on port 3001.</p>
+          <p className="text-gray-500">No invoices have been created yet.</p>
         </div>
       )}
 

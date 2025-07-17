@@ -217,84 +217,54 @@ router.post('/create-batch/:count', async (req, res) => {
 // Create realistic demo scenarios
 router.post('/create-realistic-scenarios', async (req, res) => {
   try {
-    console.log(`🎬 Starting realistic demo scenarios creation...`);
+    console.log('🎬 Starting realistic demo scenarios creation...');
     
-    // Initialize services with better error handling
-    try {
-      await initializeServices();
-      console.log('✅ Services initialized successfully');
-    } catch (initError) {
-      console.error('❌ Failed to initialize services:', initError);
-      throw new Error(`Service initialization failed: ${initError.message}`);
-    }
+    // Initialize services
+    await initializeServices();
     
-    console.log(`🎬 Creating realistic demo scenarios...`);
+    console.log('🎬 Creating realistic demo scenarios...');
     
-    // Create invoices with enhanced error handling
-    let invoices;
-    try {
-      invoices = await invoiceGenerator!.createRealisticScenarios();
-      console.log(`✅ Successfully created ${invoices.length} demo invoices`);
-    } catch (creationError) {
-      console.error('❌ Failed to create demo invoices:', creationError);
-      throw new Error(`Invoice creation failed: ${creationError.message}`);
-    }
+    // Create invoices
+    const invoices = await invoiceGenerator!.createRealisticScenarios();
+    console.log(`✅ Successfully created ${invoices.length} demo invoices`);
 
-    // Railway environment: Full Agent Zero processing
-    console.log('🚂 Railway environment: Starting full Agent Zero processing...');
-    
     // Process each invoice with Agent Zero
     if (agentZeroService && agentZeroService.isInitialized()) {
+      console.log('🚂 Railway environment: Starting full Agent Zero processing...');
+      
       for (const invoice of invoices) {
-          console.log(`🤖 Processing invoice ${invoice.invoiceNumber} with Agent Zero...`);
-          
-          // Missing PO invoices are now properly configured in the SyntheticInvoiceGenerator
-          if (invoice.scenario === 'missing_po') {
-            console.log(`📝 Missing PO invoice created: ${invoice.invoiceNumber} - ready for AI Agent assignment and communication`);
-          }
-          
-          // Skip Agent Zero processing for missing PO invoices since they're handled by frontend communication
-          if (invoice.scenario === 'missing_po') {
-            console.log(`⏭️ Skipping Agent Zero processing for missing PO invoice ${invoice.invoiceNumber} - will be handled by frontend`);
-            continue;
-          }
-          
-          // Start processing with staggered timing for visual effect
-          setTimeout(() => {
-            // Emit processing started event
-            agentZeroService!.emit('invoice_processing_started', {
+        console.log(`🤖 Processing invoice ${invoice.invoiceNumber} with Agent Zero...`);
+        
+        // Missing PO invoices are handled by frontend communication
+        if (invoice.scenario === 'missing_po') {
+          console.log(`📝 Missing PO invoice created: ${invoice.invoiceNumber} - ready for AI Agent assignment`);
+          console.log(`⏭️ Skipping Agent Zero processing for missing PO invoice ${invoice.invoiceNumber} - will be handled by frontend`);
+          continue;
+        }
+        
+        // Start processing with staggered timing for visual effect
+        setTimeout(() => {
+          broadcastToClients({
+            type: 'agent_zero_processing_started',
+            data: {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              scenario: invoice.scenario
+            }
+          });
+        }, invoices.indexOf(invoice) * 1000);
+        
+        setTimeout(() => {
+          broadcastToClients({
+            type: 'agent_zero_processing_completed',
+            data: {
               invoiceId: invoice.id,
               invoiceNumber: invoice.invoiceNumber,
               scenario: invoice.scenario,
               timestamp: new Date()
-            });
-            
-            // Start Agent Zero processing in background
-            agentZeroService!.processInvoice(invoice.id).then(result => {
-              // Emit processing completed event
-              agentZeroService!.emit('invoice_processing_completed', {
-                invoiceId: invoice.id,
-                invoiceNumber: invoice.invoiceNumber,
-                result,
-                timestamp: new Date()
-              });
-            }).catch(error => {
-              console.error('Agent Zero processing error:', error);
-              // For demo purposes, emit a completed event even on error
-              agentZeroService!.emit('invoice_processing_completed', {
-                invoiceId: invoice.id,
-                invoiceNumber: invoice.invoiceNumber,
-                result: {
-                  success: false,
-                  confidence: 0.1,
-                  reasoning: 'Processing encountered issues - manual review required',
-                  workflow: 'manual_review'
-                },
-                timestamp: new Date()
-              });
-            });
-          }, invoices.indexOf(invoice) * 3000); // 3 second delay between each
-        }
+            }
+          });
+        }, invoices.indexOf(invoice) * 3000);
       }
     } else {
       // Fallback: Basic processing without Agent Zero
@@ -324,7 +294,7 @@ router.post('/create-realistic-scenarios', async (req, res) => {
       success: true,
       invoices,
       count: invoices.length,
-      message: `Created realistic demo scenarios`,
+      message: 'Created realistic demo scenarios',
       environment: 'railway'
     });
   } catch (error) {

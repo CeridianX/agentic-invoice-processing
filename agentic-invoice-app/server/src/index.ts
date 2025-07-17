@@ -13,10 +13,10 @@ import dashboardRoutes from './routes/dashboard';
 import demoRoutes from './routes/demo';
 import businessRulesRoutes from './routes/businessRules';
 import communicationRoutes from './routes/communication';
-import voiceRoutes from './routes/voice';
-import jarvisRoutes from './routes/jarvis';
-import jarvisToolsRoutes from './routes/jarvis-tools';
-import jarvisToolsDebugRoutes from './routes/jarvis-tools-debug';
+// import voiceRoutes from './routes/voice';
+// import jarvisRoutes from './routes/jarvis';
+// import jarvisToolsRoutes from './routes/jarvis-tools';
+// import jarvisToolsDebugRoutes from './routes/jarvis-tools-debug';
 
 // Import Agent Zero
 import { AgentZeroService } from './agent-zero/AgentZeroService';
@@ -86,10 +86,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/demo', demoRoutes);
 app.use('/api/business-rules', businessRulesRoutes);
 app.use('/api/communication', communicationRoutes);
-app.use('/api/voice', voiceRoutes);
-app.use('/api/jarvis', jarvisRoutes);
-app.use('/api/jarvis-tools', jarvisToolsRoutes);
-app.use('/api/jarvis-debug', jarvisToolsDebugRoutes);
+// app.use('/api/voice', voiceRoutes);
+// app.use('/api/jarvis', jarvisRoutes);
+// app.use('/api/jarvis-tools', jarvisToolsRoutes);
+// app.use('/api/jarvis-debug', jarvisToolsDebugRoutes);
 
 // WebSocket connection for real-time Agent Zero updates
 wss.on('connection', async (ws) => {
@@ -305,11 +305,11 @@ async function processInvoicesWithAgentZero() {
             data: { 
               invoiceId: invoice.id,
               result: {
-                isValid: result.validationResult?.isValid || result.success || false,
-                confidence: result.confidence || 0.8,
-                approvalRequired: result.workflowResult?.approvalRequired || false,
-                priority: result.workflowResult?.priority || 'normal',
-                reasoning: result.reasoning || 'Processing completed'
+                isValid: result.validation?.isValid || false,
+                confidence: result.validation?.confidence || 0.8,
+                approvalRequired: result.workflow?.approvalRequired || false,
+                priority: result.workflow?.priority || 'normal',
+                reasoning: result.agentInsights?.performance?.reasoning || 'Processing completed'
               }
             }
           });
@@ -350,30 +350,20 @@ server.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT}`);
   console.log(`API endpoints available at http://localhost:${PORT}/api`);
   
-  // Initialize Agent Zero after server starts
-  setTimeout(async () => {
-    try {
-      if (agentZero) {
-        setupAgentZeroListeners();
-        await agentZero.initialize();
-        console.log('Agent Zero initialized successfully');
-        
-        // Start Agent Zero processing cycle every 10 seconds
-        agentInterval = setInterval(() => {
-          if (agentZero) {
-            processInvoicesWithAgentZero().catch(err => {
-              console.error('Agent Zero processing error:', err);
-            });
-          }
-        }, 10000);
-        
-        console.log('Agent Zero processing cycle started');
-      }
-    } catch (error) {
-      console.error('Failed to initialize Agent Zero:', error);
-      console.log('Server will continue without Agent Zero features');
+  // Start Agent Zero processing cycle every 10 seconds (after initialization)
+  setTimeout(() => {
+    if (agentZero && agentZero.isInitialized()) {
+      agentInterval = setInterval(() => {
+        if (agentZero && agentZero.isInitialized()) {
+          processInvoicesWithAgentZero().catch(err => {
+            console.error('Agent Zero processing error:', err);
+          });
+        }
+      }, 10000);
+      
+      console.log('Agent Zero processing cycle started');
     }
-  }, 2000);
+  }, 5000);
 });
 
 // Cleanup on server shutdown

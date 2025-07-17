@@ -15,7 +15,7 @@ import {
 } from '../types';
 
 export class AgentOrchestrator extends EventEmitter {
-  private agents: Map<string, any> = new Map();
+  public agents: Map<string, any> = new Map();
   private mcpServers: Map<string, any> = new Map();
   private activePlans: Map<string, AgentOrchestrationPlan> = new Map();
   private processingQueue: any[] = [];

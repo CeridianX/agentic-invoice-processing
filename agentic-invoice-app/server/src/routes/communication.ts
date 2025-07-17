@@ -21,6 +21,9 @@ function getCommunicationAgent(): CommunicationAgent | null {
   }
 }
 
+// Environment detection
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+
 // Async version that waits for Agent Zero to be ready
 async function getCommunicationAgentAsync(): Promise<CommunicationAgent | null> {
   try {
@@ -37,6 +40,37 @@ async function getCommunicationAgentAsync(): Promise<CommunicationAgent | null> 
   }
 }
 
+// Mock communication data for Vercel environment
+function getMockCommunicationData(invoiceId: string) {
+  return {
+    hasConversation: true,
+    conversation: {
+      id: `mock-conv-${invoiceId}`,
+      subject: 'Missing PO Reference: Invoice Processing Query',
+      status: 'in_progress',
+      scenario: 'missing_po',
+      participants: ['ai-invoice-system@xelix.com', 'procurement@xelix.com'],
+      createdAt: new Date().toISOString(),
+      lastActivity: new Date().toISOString(),
+      expectedResponseBy: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      currentStep: 1,
+      maxSteps: 3,
+      isInteractive: true
+    },
+    messages: [
+      {
+        id: 'msg-1',
+        from: 'ai-invoice-system@xelix.com',
+        to: 'procurement@xelix.com',
+        content: 'Hello Procurement Team,\n\nI am processing invoice from our vendor and encountered an issue that requires your clarification.\n\n**Issue Details:**\n- Invoice references PO "PO-2024-7839" which is not found in our system\n- This may be a typo or the PO number might be incorrect\n\n**Action Required:**\n- Please verify if this PO number is correct\n- If there was a typo, please provide the correct PO number\n- If this purchase was authorized without a PO, please confirm\n\nThank you for your assistance.',
+        timestamp: new Date().toISOString(),
+        status: 'sent'
+      }
+    ],
+    aiEnabled: true
+  };
+}
+
 // Get conversation data for a specific invoice
 router.get('/conversations/:invoiceId', async (req, res) => {
   try {
@@ -45,6 +79,12 @@ router.get('/conversations/:invoiceId', async (req, res) => {
     // Try to get communication agent with async initialization
     const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
+      // On Vercel, provide mock communication data for demo purposes
+      if (isVercel) {
+        console.log('🔄 Vercel environment: Using mock communication data');
+        return res.json(getMockCommunicationData(invoiceId));
+      }
+      
       return res.status(503).json({ 
         error: 'Communication service not available',
         message: 'Agent Zero communication system is not initialized'
@@ -106,6 +146,38 @@ router.get('/conversations', async (req, res) => {
   try {
     const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
+      // On Vercel, provide mock conversations list for demo purposes
+      if (isVercel) {
+        console.log('🔄 Vercel environment: Using mock conversations list');
+        return res.json({
+          conversations: [
+            {
+              id: 'mock-conv-1',
+              subject: 'Missing PO Reference: Invoice Processing Query',
+              status: 'in_progress',
+              scenario: 'missing_po',
+              relatedInvoiceId: 'demo-invoice-1',
+              participants: ['ai-invoice-system@xelix.com', 'procurement@xelix.com'],
+              createdAt: new Date().toISOString(),
+              lastActivity: new Date().toISOString(),
+              messageCount: 1,
+              lastMessage: {
+                from: 'ai-invoice-system@xelix.com',
+                timestamp: new Date().toISOString(),
+                preview: 'Missing PO Reference: Invoice Processing Query'
+              }
+            }
+          ],
+          metrics: {
+            totalConversations: 1,
+            activeConversations: 1,
+            resolvedConversations: 0,
+            averageResponseTime: 0
+          },
+          aiEnabled: true
+        });
+      }
+      
       return res.status(503).json({ 
         error: 'Communication service not available' 
       });
@@ -153,6 +225,26 @@ router.post('/invoke/:invoiceId', async (req, res) => {
     
     const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
+      // On Vercel, provide mock response for demo purposes
+      if (isVercel) {
+        console.log('🔄 Vercel environment: Using mock communication invoke');
+        return res.json({
+          success: true,
+          scenario,
+          result: {
+            emailMessage: {
+              subject: 'Missing PO Reference: Invoice Processing Query',
+              body: 'Hello Procurement Team,\n\nI am processing invoice from our vendor and encountered an issue that requires your clarification.\n\n**Issue Details:**\n- Invoice references PO "PO-2024-7839" which is not found in our system\n- This may be a typo or the PO number might be incorrect\n\n**Action Required:**\n- Please verify if this PO number is correct\n- If there was a typo, please provide the correct PO number\n- If this purchase was authorized without a PO, please confirm\n\nThank you for your assistance.',
+              timestamp: new Date().toISOString()
+            },
+            confidence: 0.85,
+            reasoning: 'Invoice validation failed due to missing PO reference. Generated automated query to procurement team.',
+            nextSteps: ['Wait for procurement team response', 'Update invoice with correct PO reference', 'Continue processing workflow']
+          },
+          aiEnabled: true
+        });
+      }
+      
       return res.status(503).json({ 
         error: 'Communication service not available' 
       });

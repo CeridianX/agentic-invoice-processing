@@ -6,8 +6,8 @@ import { AdaptiveLearningSystem } from './learning/AdaptiveLearningSystem';
 
 export class AgentZeroService extends EventEmitter {
   private static instance: AgentZeroService;
-  private orchestrator: AgentOrchestrator;
-  private prisma: PrismaClient;
+  public orchestrator: AgentOrchestrator;
+  public prisma: PrismaClient;
   private learningSystem: AdaptiveLearningSystem;
   private initialized = false;
 
@@ -235,10 +235,10 @@ export class AgentZeroService extends EventEmitter {
         confidence: 0.1,
         reasoning: `Agent Zero processing encountered an error: ${error.message}`,
         processingTime: Date.now() - startTime,
-        workflow: 'error_handling',
         extractedData: {},
-        validationResult: { isValid: false, issues: ['Processing error'] },
-        workflowResult: { route: 'manual_review', reason: 'Processing error' }
+        validation: { isValid: false, confidence: 0.1, issues: ['Processing error'] },
+        workflow: { route: 'manual_review', reason: 'Processing error', approvalRequired: true, priority: 'medium' },
+        agentInsights: { recommendations: [], patterns: [], performance: { processingTime: Date.now() - startTime, confidence: 0.1 } }
       };
     }
   }
@@ -349,8 +349,7 @@ export class AgentZeroService extends EventEmitter {
       initialized: this.initialized,
       activeAgents: activeAgents.length,
       activePlans: activePlans.length,
-      agentStatuses,
-      activePlans
+      agentStatuses
     };
   }
 
@@ -380,10 +379,10 @@ export class AgentZeroService extends EventEmitter {
         .reduce((sum, a) => sum + (a.confidenceLevel || 0), 0) / totalProcessed;
 
       const agentActivityCounts = activities.reduce((counts, activity) => {
-        const agentName = activity.metadata?.agentName || 'Unknown';
+        const agentName = (activity.metadata as any)?.agentName || 'Unknown';
         counts[agentName] = (counts[agentName] || 0) + 1;
         return counts;
-      }, {});
+      }, {} as Record<string, number>);
 
       // Get recent successful processing patterns
       const recentSuccesses = activities.filter(a => 

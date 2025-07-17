@@ -213,7 +213,7 @@ interface CurrentProcessing {
 }
 
 // API service
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://server-eb0g35lmt-xelix-projects.vercel.app';
 
 const invoiceService = {
   getAll: async (): Promise<Invoice[]> => {

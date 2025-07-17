@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Invoice, Vendor, PurchaseOrder, AgentActivity, AgentSuggestion, DashboardStats } from '../types';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'https://server-eb0g35lmt-xelix-projects.vercel.app/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import InvoiceList from './components/InvoiceList';
 import InvoiceDetail from './components/InvoiceDetail';
 import POList from './components/POList';
+import Navigation from './components/Navigation';
 import { ArrowLeft, FileText, Receipt } from 'lucide-react';
 
 // Define minimal types needed for App
@@ -116,79 +117,90 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-14">
-            <div className="flex items-center">
-              <img src="/xelix_logo.svg" alt="Xelix" className="h-8" />
-            </div>
-            
-            {/* Navigation Pills - Centered */}
-            {!selectedInvoice && !selectedPO && (
-              <nav className="flex-1 flex justify-center" aria-label="Tabs">
-                <div className="flex space-x-2 bg-gray-50 rounded-full px-1 py-1">
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Navigation Sidebar */}
+      <Navigation />
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
+          <div className="w-full px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center h-14">
+              {/* Back button for detail views */}
+              {(selectedInvoice || selectedPO) && (
                 <button
-                  onClick={() => handleViewChange('invoices')}
-                  className={`${
-                    currentView === 'invoices'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  } inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors`}
+                  onClick={handleBackToList}
+                  className="flex items-center text-gray-600 hover:text-gray-900 mr-4"
                 >
-                  <Receipt className={`${
-                    currentView === 'invoices' ? 'text-purple-600' : 'text-gray-500'
-                  } -ml-0.5 mr-1.5 h-4 w-4`} />
-                  Invoices
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Back
                 </button>
-                <button
-                  onClick={() => handleViewChange('purchase-orders')}
-                  className={`${
-                    currentView === 'purchase-orders'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  } inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors`}
-                >
-                  <FileText className={`${
-                    currentView === 'purchase-orders' ? 'text-purple-600' : 'text-gray-500'
-                  } -ml-0.5 mr-1.5 h-4 w-4`} />
-                  Purchase Orders
-                </button>
-                </div>
-              </nav>
-            )}
-            
-            <div className="flex items-center">
-              {/* Placeholder for right side content if needed */}
+              )}
+              
+              {/* Navigation Pills - Left Aligned */}
+              {!selectedInvoice && !selectedPO && (
+                <nav className="flex-1 flex justify-start" aria-label="Tabs">
+                  <div className="flex space-x-2 bg-gray-50 rounded-full px-1 py-1">
+                  <button
+                    onClick={() => handleViewChange('invoices')}
+                    className={`${
+                      currentView === 'invoices'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    } inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors`}
+                  >
+                    <Receipt className={`${
+                      currentView === 'invoices' ? 'text-purple-600' : 'text-gray-500'
+                    } -ml-0.5 mr-1.5 h-4 w-4`} />
+                    Invoices
+                  </button>
+                  <button
+                    onClick={() => handleViewChange('purchase-orders')}
+                    className={`${
+                      currentView === 'purchase-orders'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    } inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors`}
+                  >
+                    <FileText className={`${
+                      currentView === 'purchase-orders' ? 'text-purple-600' : 'text-gray-500'
+                    } -ml-0.5 mr-1.5 h-4 w-4`} />
+                    Purchase Orders
+                  </button>
+                  </div>
+                </nav>
+              )}
+              
+              <div className="flex items-center">
+                {/* Placeholder for right side content if needed */}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Main Content with proper top spacing */}
-      <div className="pt-16 pb-8">
-
-
-        {/* Content Area */}
-        {selectedInvoice ? (
-          <InvoiceDetail 
-            invoice={selectedInvoice} 
-            onBack={handleBackToList} 
-          />
-        ) : selectedPO ? (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Purchase Order Details</h2>
-              <p className="text-gray-600">PO Detail view coming soon...</p>
-              <p className="text-sm text-gray-500 mt-2">Selected PO: {selectedPO.poNumber}</p>
+        
+        {/* Main Content */}
+        <div className="flex-1 pb-8">
+          {/* Content Area */}
+          {selectedInvoice ? (
+            <InvoiceDetail 
+              invoice={selectedInvoice} 
+              onBack={handleBackToList} 
+            />
+          ) : selectedPO ? (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Purchase Order Details</h2>
+                <p className="text-gray-600">PO Detail view coming soon...</p>
+                <p className="text-sm text-gray-500 mt-2">Selected PO: {selectedPO.poNumber}</p>
+              </div>
             </div>
-          </div>
-        ) : currentView === 'invoices' ? (
-          <InvoiceList onSelectInvoice={handleInvoiceSelect} />
-        ) : (
-          <POList onSelectPO={setSelectedPO} />
-        )}
+          ) : currentView === 'invoices' ? (
+            <InvoiceList onSelectInvoice={handleInvoiceSelect} />
+          ) : (
+            <POList onSelectPO={setSelectedPO} />
+          )}
+        </div>
       </div>
     </div>
   );

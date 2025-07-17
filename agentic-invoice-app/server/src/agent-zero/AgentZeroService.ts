@@ -231,14 +231,23 @@ export class AgentZeroService extends EventEmitter {
 
       // For demo purposes, return a graceful failure result instead of throwing
       return {
-        success: false,
-        confidence: 0.1,
-        reasoning: `Agent Zero processing encountered an error: ${error.message}`,
-        processingTime: Date.now() - startTime,
+        invoiceId: invoiceData.id || 'unknown',
         extractedData: {},
-        validation: { isValid: false, confidence: 0.1, issues: ['Processing error'] },
-        workflow: { recommendedActions: ['Manual review required'], approvalRequired: true, priority: 'medium' },
-        agentInsights: { recommendations: ['Processing error - manual review required'], patterns: [], learnings: [] }
+        validation: { 
+          isValid: false, 
+          confidence: 0.1, 
+          issues: [`Processing error: ${error.message}`] 
+        },
+        workflow: { 
+          recommendedActions: ['Manual review required'], 
+          approvalRequired: true, 
+          priority: 'medium' 
+        },
+        agentInsights: { 
+          recommendations: ['Processing error - manual review required'], 
+          patterns: [], 
+          learnings: [] 
+        }
       };
     }
   }

@@ -5,6 +5,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
+import fs from 'fs';
 
 import invoiceRoutes from './routes/invoices';
 import vendorRoutes from './routes/vendors';
@@ -99,7 +100,19 @@ const frontendDistPath = process.env.NODE_ENV === 'production'
   ? '/app/agentic-invoice-app/agentic-invoice-app/dist'
   : path.join(__dirname, '../agentic-invoice-app/dist');
 
+console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`__dirname: ${__dirname}`);
 console.log(`Frontend static files path: ${frontendDistPath}`);
+
+// Check if the directory exists
+if (fs.existsSync(frontendDistPath)) {
+  console.log(`✅ Frontend directory exists at: ${frontendDistPath}`);
+  const files = fs.readdirSync(frontendDistPath);
+  console.log(`Files in frontend directory: ${files.join(', ')}`);
+} else {
+  console.log(`❌ Frontend directory does NOT exist at: ${frontendDistPath}`);
+}
+
 app.use(express.static(frontendDistPath));
 
 // Handle React Router - serve index.html for all non-API routes

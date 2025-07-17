@@ -2,7 +2,7 @@
 FROM node:18-alpine
 
 # Add build argument to bust cache
-ARG CACHEBUST=1
+ARG CACHEBUST=2
 
 # Install OpenSSL and other dependencies
 RUN apk add --no-cache openssl libc6-compat

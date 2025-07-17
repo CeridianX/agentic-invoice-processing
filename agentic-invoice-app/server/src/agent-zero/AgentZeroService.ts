@@ -164,10 +164,13 @@ export class AgentZeroService extends EventEmitter {
         throw new Error(`Invoice ${invoiceId} not found`);
       }
 
-      // Update processing started timestamp
+      // Update invoice status to processing and set processing started timestamp
       await this.prisma.invoice.update({
         where: { id: invoiceId },
-        data: { agentProcessingStarted: new Date() }
+        data: { 
+          agentProcessingStarted: new Date(),
+          status: 'processing' // Change from 'queued' to 'processing'
+        }
       });
 
       console.log(`Agent Zero: Starting intelligent processing for invoice ${invoiceData.invoiceNumber}${options?.learningIteration ? ` (Learning iteration ${options.learningIteration})` : ''}`);

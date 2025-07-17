@@ -335,10 +335,10 @@ function broadcastToClients(message: any) {
 // Agent Zero intelligent processing
 async function processInvoicesWithAgentZero() {
   try {
-    // Get pending invoices that need Agent Zero processing
+    // Get queued invoices that need Agent Zero processing
     const pendingInvoices = await prisma.invoice.findMany({
       where: { 
-        status: 'pending',
+        status: 'queued', // Process invoices that are queued
         // Only process invoices that haven't been processed by Agent Zero yet
         agentActivities: {
           none: {
@@ -354,7 +354,7 @@ async function processInvoicesWithAgentZero() {
     });
 
     if (pendingInvoices.length > 0) {
-      console.log(`Agent Zero: Processing ${pendingInvoices.length} pending invoices`);
+      console.log(`Agent Zero: Processing ${pendingInvoices.length} queued invoices`);
       
       // Process each invoice with Agent Zero
       for (const invoice of pendingInvoices) {

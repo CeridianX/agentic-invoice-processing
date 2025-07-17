@@ -166,7 +166,7 @@ export class SyntheticInvoiceGenerator {
       dueDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days
       currency: 'USD',
       paymentTerms: 'Net 30',
-      status: 'pending'
+      status: 'queued' // Start in queued status, will change to 'processing' then 'pending' during Agent Zero processing
     };
   }
 
@@ -266,16 +266,8 @@ export class SyntheticInvoiceGenerator {
       amount: options.customAmount || this.randomAmount(1500, 8000), // Medium amounts
       scenario: 'missing_po',
       hasIssues: true, // Mark as having issues for exception counting
-      status: 'pending_internal_review', // New status for AI internal queries
       poId: null, // Explicitly no PO reference
-      notes: 'Invoice references PO "PO-2024-7839" which is not found in our system. AI has queried procurement team for clarification.',
-      // Agent Zero specific fields for this scenario
-      agentProcessingStarted: new Date(), // Processing has started
-      agentProcessingCompleted: new Date(), // Mark as completed to allow communication trigger
-      agentConfidence: 0.85, // High confidence that this is the issue
-      agentReasoning: 'Invoice validation failed due to missing PO reference "PO-2024-7839". Automatically generated query to procurement team for clarification. Awaiting response.',
-      workflowRoute: 'internal_query',
-      processingTimeMs: null // Will be set when internal response is received
+      notes: 'Demo: Invoice with missing PO reference - will trigger AI communication with procurement team'
     };
   }
 

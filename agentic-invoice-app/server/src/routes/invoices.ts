@@ -9,7 +9,10 @@ router.get('/', async (req, res) => {
   try {
     const { status, vendorId, hasIssues, sortBy = 'receivedDate', order = 'desc' } = req.query;
     
-    const where: any = {};
+    const where: any = {
+      // Exclude queued invoices from the main list - they should only appear during processing
+      status: { not: 'queued' }
+    };
     if (status) where.status = status;
     if (vendorId) where.vendorId = vendorId;
     if (hasIssues !== undefined) where.hasIssues = hasIssues === 'true';

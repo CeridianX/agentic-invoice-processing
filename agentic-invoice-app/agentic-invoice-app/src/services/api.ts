@@ -45,6 +45,11 @@ export const invoiceService = {
     const response = await api.post('/invoices/bulk-approve', { invoiceIds });
     return response.data;
   },
+
+  getQueueStatus: async () => {
+    const response = await api.get<{ queued: number; processing: number; total: number }>('/invoices/queue-status');
+    return response.data;
+  },
 };
 
 export const vendorService = {

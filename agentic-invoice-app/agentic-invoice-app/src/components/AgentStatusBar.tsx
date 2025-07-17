@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { invoiceService } from '../services/api';
 
 export default function AgentStatusBar() {
   const [agentStatus, setAgentStatus] = useState('AI Agent Active');
   const [activity, setActivity] = useState('Processing invoice patterns...');
-  const [queue, setQueue] = useState('Queue: 30');
+  const [queueCount, setQueueCount] = useState(0);
   const [savedToday, setSavedToday] = useState('Saved Today: $4,280');
   
   const activities = [
@@ -14,12 +15,32 @@ export default function AgentStatusBar() {
     'Validating tax calculations...'
   ];
 
+  // Fetch queue status
+  const fetchQueueStatus = async () => {
+    try {
+      const queueStatus = await invoiceService.getQueueStatus();
+      setQueueCount(queueStatus.total);
+    } catch (error) {
+      console.error('Failed to fetch queue status:', error);
+    }
+  };
+
   useEffect(() => {
-    const interval = setInterval(() => {
+    // Initial fetch
+    fetchQueueStatus();
+
+    // Activity rotation
+    const activityInterval = setInterval(() => {
       setActivity(activities[Math.floor(Math.random() * activities.length)]);
     }, 3000);
 
-    return () => clearInterval(interval);
+    // Queue status polling
+    const queueInterval = setInterval(fetchQueueStatus, 2000);
+
+    return () => {
+      clearInterval(activityInterval);
+      clearInterval(queueInterval);
+    };
   }, []);
 
   return (
@@ -39,7 +60,7 @@ export default function AgentStatusBar() {
           <div className="flex items-center space-x-4">
             <div className="text-right">
               <div className="text-xs text-gray-500">Queue</div>
-              <div className="text-lg font-semibold">30</div>
+              <div className="text-lg font-semibold">{queueCount}</div>
             </div>
             <div className="text-right">
               <div className="text-xs text-gray-500">Saved Today</div>

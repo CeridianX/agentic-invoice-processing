@@ -192,7 +192,7 @@ export class AgentZeroService extends EventEmitter {
       }
       
       // Update invoice in database with results
-      await this.updateInvoiceWithResults(invoiceId, result);
+      await this.updateInvoiceWithResults(invoiceId, result, invoiceData.scenario);
       
       // Record learning experience
       const processingTime = Date.now() - startTime;
@@ -301,7 +301,8 @@ export class AgentZeroService extends EventEmitter {
 
   private async updateInvoiceWithResults(
     invoiceId: string, 
-    result: InvoiceProcessingResult
+    result: InvoiceProcessingResult,
+    scenario?: string
   ): Promise<void> {
     try {
       // Update invoice status based on Agent Zero results
@@ -326,7 +327,11 @@ export class AgentZeroService extends EventEmitter {
 
       // Extract assignee from workflow result
       let assignedTo = null;
-      if (result.workflow.priority === 'high') {
+      
+      // For missing PO scenarios, preserve the AI agent assignment
+      if (scenario === 'missing_po') {
+        assignedTo = 'ai-invoice-agent';
+      } else if (result.workflow.priority === 'high') {
         assignedTo = 'executive-team';
       } else if (result.workflow.approvalRequired) {
         assignedTo = 'manager';

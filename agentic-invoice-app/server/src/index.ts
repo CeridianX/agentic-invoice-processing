@@ -362,9 +362,13 @@ app.use((err: any, req: any, res: any, next: any) => {
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = '0.0.0.0';
 
+console.log(`Starting server with PORT=${PORT}, NODE_ENV=${process.env.NODE_ENV}`);
+
 server.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-  console.log(`API endpoints available at http://localhost:${PORT}/api`);
+  console.log(`✅ Server running on http://${HOST}:${PORT}`);
+  console.log(`✅ Health check endpoint: http://${HOST}:${PORT}/health`);
+  console.log(`✅ API endpoints available at http://${HOST}:${PORT}/api`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
   
   // Start Agent Zero processing cycle every 10 seconds (after initialization)
   setTimeout(() => {
@@ -388,8 +392,10 @@ process.on('SIGTERM', async () => {
   clearInterval(agentInterval);
   
   try {
-    await agentZero.shutdown();
-    console.log('Agent Zero shutdown complete');
+    if (agentZero && agentZero.shutdown) {
+      await agentZero.shutdown();
+      console.log('Agent Zero shutdown complete');
+    }
   } catch (error) {
     console.error('Error shutting down Agent Zero:', error);
   }
@@ -397,4 +403,16 @@ process.on('SIGTERM', async () => {
   server.close();
   await prisma.$disconnect();
   console.log('Server shutdown complete');
+  process.exit(0);
+});
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });

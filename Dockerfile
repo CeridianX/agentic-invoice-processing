@@ -4,6 +4,9 @@ FROM node:18-alpine
 # Add build argument to bust cache
 ARG CACHEBUST=1
 
+# Install OpenSSL and other dependencies
+RUN apk add --no-cache openssl libc6-compat
+
 # Set working directory
 WORKDIR /app
 

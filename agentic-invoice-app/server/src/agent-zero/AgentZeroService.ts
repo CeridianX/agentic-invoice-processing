@@ -186,6 +186,11 @@ export class AgentZeroService extends EventEmitter {
       
       const result = await this.orchestrator.processInvoice(invoiceData);
       
+      // Handle special case for missing PO scenario
+      if (invoiceData.scenario === 'missing_po') {
+        await this.handleMissingPOScenario(invoiceId, invoiceData, result);
+      }
+      
       // Update invoice in database with results
       await this.updateInvoiceWithResults(invoiceId, result);
       
@@ -252,6 +257,45 @@ export class AgentZeroService extends EventEmitter {
           learnings: [] 
         }
       };
+    }
+  }
+
+  private async handleMissingPOScenario(
+    invoiceId: string,
+    invoiceData: any,
+    result: InvoiceProcessingResult
+  ): Promise<void> {
+    try {
+      console.log(`🤖 Handling missing PO scenario for invoice ${invoiceData.invoiceNumber}`);
+      
+      // Assign to AI agent specifically
+      await this.prisma.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          assignedTo: 'ai-invoice-agent',
+          status: 'pending_internal_review',
+          notes: `Invoice references PO "PO-2024-7839" which is not found in our system. AI agent is querying procurement team for clarification.`,
+          agentReasoning: 'Missing PO reference detected. Initiating communication with procurement team to resolve.'
+        }
+      });
+
+      // Trigger communication with procurement team
+      const agentZero = (global as any).agentZeroInstance;
+      if (agentZero) {
+        // Emit communication initiated event
+        agentZero.emit('communication_initiated', {
+          invoiceId: invoiceId,
+          invoiceNumber: invoiceData.invoiceNumber,
+          scenario: 'missing_po',
+          reason: 'missing_po_inquiry',
+          timestamp: new Date()
+        });
+
+        console.log(`📧 Communication initiated for missing PO invoice ${invoiceData.invoiceNumber}`);
+      }
+      
+    } catch (error) {
+      console.error('Error handling missing PO scenario:', error);
     }
   }
 

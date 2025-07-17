@@ -4,6 +4,28 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Get queue status
+router.get('/queue-status', async (req, res) => {
+  try {
+    const queuedCount = await prisma.invoice.count({
+      where: { status: 'queued' }
+    });
+    
+    const processingCount = await prisma.invoice.count({
+      where: { status: 'processing' }
+    });
+
+    res.json({
+      queued: queuedCount,
+      processing: processingCount,
+      total: queuedCount + processingCount
+    });
+  } catch (error) {
+    console.error('Error getting queue status:', error);
+    res.status(500).json({ error: 'Failed to get queue status' });
+  }
+});
+
 // Get all invoices with filters
 router.get('/', async (req, res) => {
   try {

@@ -69,12 +69,14 @@ setTimeout(initializeAgentZero, 100);
 app.use(cors());
 app.use(express.json());
 
-// Health check endpoint
+// Health check endpoint (early in the app, before any DB dependencies)
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date(),
-    agentZero: agentZero ? 'initializing' : 'not started'
+    agentZero: agentZero ? 'initializing' : 'not started',
+    environment: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || '3001'
   });
 });
 

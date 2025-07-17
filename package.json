@@ -7,7 +7,7 @@
     "build:frontend": "cd agentic-invoice-app/agentic-invoice-app && npm run build",
     "build:backend": "cd agentic-invoice-app/server && npm run build",
     "build": "npm run build:frontend && npm run build:backend",
-    "start:prod": "cd agentic-invoice-app/server && npx prisma migrate deploy && npm start",
+    "start:prod": "cd agentic-invoice-app/server && npm start",
     "dev:frontend": "cd agentic-invoice-app/agentic-invoice-app && npm run dev",
     "dev:backend": "cd agentic-invoice-app/server && npm run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""

@@ -43,5 +43,9 @@ RUN echo "=== Directory structure ===" && \
 # Expose port
 EXPOSE 3000
 
+# Copy startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Start the application
-CMD ["npm", "run", "start:prod"]
+CMD ["/app/start.sh"]

@@ -4,6 +4,7 @@ builder = "dockerfile"
 [deploy]
 healthcheckPath = "/health"
 healthcheckTimeout = 300
+restartPolicyMaxRetries = 3
 
 [variables]
 NODE_ENV = "production"

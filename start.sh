@@ -44,6 +44,14 @@ fi
 echo "📦 Generating Prisma client..."
 npx prisma generate || echo "⚠️  Prisma generate failed, continuing..."
 
+# Seed the database with initial data
+echo "🌱 Seeding database with initial data..."
+if node dist/seed.js; then
+  echo "✅ Database seeded successfully"
+else
+  echo "⚠️  Database seeding failed (might already be seeded)"
+fi
+
 # Start the application
 echo "🎯 Starting Node.js server on port ${PORT}..."
 exec npm start

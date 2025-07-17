@@ -593,7 +593,11 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                 ...invoice, 
                 agentProcessingCompleted: new Date().toISOString(),
                 status: finalStatus,
-                assignedTo
+                assignedTo,
+                // Enable clicking now that processing is complete
+                _isOptimistic: false,
+                _isProcessing: false,
+                _canClick: true
               };
             }
             return invoice;
@@ -608,22 +612,30 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
         break;
       case 'invoice_created':
         console.log('🆕 Invoice created event received:', message.data);
-        // Add new invoice(s) to the list
+        // Replace optimistic invoices with real ones from server
         if (message.data.invoices) {
-          // Batch creation
-          console.log('📦 Adding batch of invoices:', message.data.invoices.length);
-          setInvoices(prev => [...message.data.invoices, ...prev]);
+          // Batch creation - replace optimistic invoices
+          console.log('📦 Replacing optimistic invoices with real ones:', message.data.invoices.length);
+          setInvoices(prev => {
+            // Remove optimistic invoices and add real ones
+            const nonOptimistic = prev.filter(inv => !inv._isOptimistic);
+            return [...message.data.invoices, ...nonOptimistic];
+          });
         } else if (message.data.invoice) {
-          // Single invoice creation
-          console.log('📝 Adding single invoice:', message.data.invoice.invoiceNumber);
-          setInvoices(prev => [message.data.invoice, ...prev]);
+          // Single invoice creation - replace corresponding optimistic invoice
+          console.log('📝 Replacing optimistic invoice:', message.data.invoice.invoiceNumber);
+          setInvoices(prev => {
+            // Find and replace the optimistic invoice with matching scenario
+            return prev.map(inv => {
+              if (inv._isOptimistic && inv.scenario === message.data.invoice.scenario) {
+                // Replace optimistic with real invoice data
+                return { ...message.data.invoice, _canClick: false }; // Still not clickable until processed
+              }
+              return inv;
+            });
+          });
         }
-        
-        // Refresh invoice list to ensure we have latest data
-        setTimeout(() => {
-          console.log('🔄 Refreshing invoice list after creation');
-          loadInvoices();
-        }, 500);
+        // No need to refresh - we already have the data!
         break;
       case 'invoice_processing_started':
         console.log('🎯 INVOICE_PROCESSING_STARTED EVENT:', message.data);
@@ -635,7 +647,13 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
         // Update invoice status to show it's being processed
         setInvoices(prev => prev.map(inv => 
           inv.id === message.data.invoiceId 
-            ? { ...inv, agentProcessingStarted: message.data.timestamp }
+            ? { 
+                ...inv, 
+                agentProcessingStarted: message.data.timestamp,
+                status: 'processing',
+                _isProcessing: true,
+                _canClick: false
+              }
             : inv
         ));
         setCurrentProcessing({
@@ -889,6 +907,73 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
   const totalValue = useMemo(() => {
     return invoices.reduce((sum, inv) => sum + inv.amount, 0);
   }, [invoices]);
+
+  // Generate optimistic invoice previews that match server-side generation
+  const generateOptimisticInvoices = () => {
+    const now = new Date();
+    const timestamp = now.getTime().toString().slice(-6);
+    
+    const scenarios = [
+      { 
+        scenario: 'simple', 
+        description: 'Office supplies - auto approval',
+        amount: 750,
+        vendorName: 'Office Depot',
+        trustLevel: 'high'
+      },
+      { 
+        scenario: 'complex', 
+        description: 'New vendor equipment purchase',
+        amount: 5500,
+        vendorName: 'Tech Solutions Inc',
+        trustLevel: 'medium'
+      },
+      { 
+        scenario: 'learning', 
+        description: 'Recurring service invoice',
+        amount: 1000,
+        vendorName: 'TechCorp Services',
+        trustLevel: 'high'
+      },
+      { 
+        scenario: 'exceptional', 
+        description: 'Major infrastructure investment',
+        amount: 25000,
+        vendorName: 'Enterprise Systems',
+        trustLevel: 'medium'
+      },
+      { 
+        scenario: 'missing_po', 
+        description: 'Invoice with missing PO - AI queries procurement',
+        amount: 3500,
+        vendorName: 'Global Supplies Co',
+        trustLevel: 'medium'
+      }
+    ];
+
+    return scenarios.map((config, index) => ({
+      id: `optimistic-${timestamp}-${index}`,
+      invoiceNumber: `DEMO-${now.getFullYear()}-${timestamp}${(index + 1).toString().padStart(3, '0')}`,
+      amount: config.amount,
+      currency: 'USD',
+      invoiceDate: now.toISOString(),
+      receivedDate: now.toISOString(),
+      dueDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'queued',
+      scenario: config.scenario,
+      vendor: {
+        id: `vendor-${index}`,
+        name: config.vendorName,
+        trustLevel: config.trustLevel
+      },
+      notes: `Demo: ${config.description}`,
+      paymentTerms: 'Net 30',
+      // Mark as optimistic for UI handling
+      _isOptimistic: true,
+      _isProcessing: false,
+      _canClick: false
+    }));
+  };
 
   const getProcessStatusBadge = (invoice: Invoice) => {
     // Determine the actual process status based on invoice state
@@ -2224,11 +2309,33 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
               {invoices.map((invoice, index) => {
                 const aiAnalysis = getAIAnalysis(invoice);
                 const daysUntilDue = getDaysUntilDue(invoice.dueDate);
+                
+                // Determine if invoice can be clicked
+                const isProcessing = invoice.status === 'queued' || 
+                                   invoice.status === 'processing' || 
+                                   (invoice.agentProcessingStarted && !invoice.agentProcessingCompleted) ||
+                                   invoice._isOptimistic ||
+                                   invoice._isProcessing ||
+                                   invoice._canClick === false;
+                
+                const rowClassName = isProcessing 
+                  ? "opacity-60 cursor-not-allowed transition-colors bg-gray-50/50 select-none"
+                  : "hover:bg-gray-50 cursor-pointer transition-colors";
+                
+                const titleText = isProcessing 
+                  ? "Invoice is being processed - please wait" 
+                  : "Click to view invoice details";
+                
                 return (
                   <tr 
                     key={invoice.id} 
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={rowClassName}
+                    title={titleText}
                     onClick={() => {
+                      if (isProcessing) {
+                        console.log('Invoice is processing - click disabled');
+                        return;
+                      }
                       if (index === 1) setShowPatternCard(true);
                       onSelectInvoice(invoice);
                     }}
@@ -2416,6 +2523,10 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                       
                       // 🚀 OPTIMISTIC UPDATE: Immediately show 5 invoices in queue
                       updateQueueCountOptimistically(5);
+                      
+                      // 🚀 OPTIMISTIC UPDATE: Immediately add 5 invoice rows to prevent table flashing
+                      const optimisticInvoices = generateOptimisticInvoices();
+                      setInvoices(prev => [...optimisticInvoices, ...prev]);
                       
                       const response = await fetch(`${apiBaseUrl}/api/demo/create-realistic-scenarios`, { 
                         method: 'POST',

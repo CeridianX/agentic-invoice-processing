@@ -237,8 +237,8 @@ export class AgentZeroService extends EventEmitter {
         processingTime: Date.now() - startTime,
         extractedData: {},
         validation: { isValid: false, confidence: 0.1, issues: ['Processing error'] },
-        workflow: { route: 'manual_review', reason: 'Processing error', approvalRequired: true, priority: 'medium' },
-        agentInsights: { recommendations: [], patterns: [], performance: { processingTime: Date.now() - startTime, confidence: 0.1 } }
+        workflow: { recommendedActions: ['Manual review required'], approvalRequired: true, priority: 'medium' },
+        agentInsights: { recommendations: ['Processing error - manual review required'], patterns: [], learnings: [] }
       };
     }
   }

@@ -131,7 +131,7 @@ You should:
     let workflow = 'auto_approve';
     let reasoning = evaluation.reasoning;
     const appliedRules = evaluation.applicableRules;
-    const nextSteps = [];
+    let nextSteps = [];
 
     // Determine workflow based on recommended actions
     const actions = evaluation.recommendedActions;

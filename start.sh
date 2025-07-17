@@ -32,7 +32,11 @@ else
     echo "✅ Schema pushed successfully"
   else
     echo "❌ Failed to setup database"
-    exit 1
+    echo "🔍 Testing database connection..."
+    npx prisma db execute --stdin <<< "SELECT 1" || echo "Database connection test failed"
+    
+    # Try to start anyway - the app might work without migrations
+    echo "⚠️  Starting app without database migrations..."
   fi
 fi
 

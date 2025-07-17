@@ -96,7 +96,7 @@ app.use('/api/communication', communicationRoutes);
 // In production, __dirname is /app/agentic-invoice-app/server/dist
 // Frontend build is at /app/agentic-invoice-app/agentic-invoice-app/dist
 const frontendDistPath = process.env.NODE_ENV === 'production' 
-  ? path.join(__dirname, '../../agentic-invoice-app/dist')
+  ? '/app/agentic-invoice-app/agentic-invoice-app/dist'
   : path.join(__dirname, '../agentic-invoice-app/dist');
 
 console.log(`Frontend static files path: ${frontendDistPath}`);

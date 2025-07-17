@@ -254,7 +254,6 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoNotification, setDemoNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const pollingCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     loadInvoices();
@@ -265,22 +264,13 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       if (wsRef.current) {
         wsRef.current.close();
       }
-      if (pollingCleanupRef.current) {
-        pollingCleanupRef.current();
-      }
     };
   }, []);
 
   const setupWebSocket = () => {
-    // Only enable WebSocket in development mode (localhost)
-    if (!apiBaseUrl.includes('localhost')) {
-      logger.debug('WebSocket disabled in production mode - using polling instead');
-      setupPolling();
-      return;
-    }
-
     try {
       const wsUrl = apiBaseUrl.replace('https://', 'wss://').replace('http://', 'ws://');
+      logger.debug(`🔌 Connecting to WebSocket: ${wsUrl}`);
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
@@ -299,10 +289,8 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
 
       wsRef.current.onclose = () => {
         logger.debug('Agent Zero WebSocket disconnected');
-        // Only attempt to reconnect in development
-        if (apiBaseUrl.includes('localhost')) {
-          setTimeout(setupWebSocket, 5000);
-        }
+        // Attempt to reconnect after 5 seconds
+        setTimeout(setupWebSocket, 5000);
       };
 
       wsRef.current.onerror = (error) => {
@@ -313,59 +301,6 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
     }
   };
 
-  const setupPolling = () => {
-    let previousInvoiceCount = invoices.length;
-    let pollCount = 0;
-    
-    // Polling-based updates for production environment
-    const pollInterval = setInterval(async () => {
-      try {
-        // Determine polling behavior based on demo state
-        const isDemoActive = demoLoading;
-        const isRecentlyActive = pollCount < 30; // Poll actively for first 30 seconds
-        
-        // Skip polling if no demo is active and we've been running for a while
-        if (!isDemoActive && !isRecentlyActive && previousInvoiceCount === invoices.length) {
-          return;
-        }
-        
-        pollCount++;
-        
-        // Poll for updated invoices
-        const response = await fetch(`${apiBaseUrl}/api/invoices`);
-        const data = await response.json();
-        
-        // Compare with current invoices to detect changes
-        const currentInvoiceIds = new Set(invoices.map(inv => inv.id));
-        const newInvoices = data.invoices.filter((inv: any) => !currentInvoiceIds.has(inv.id));
-        
-        // If new invoices found, update the list
-        if (newInvoices.length > 0) {
-          logger.debug(`📨 Polling detected ${newInvoices.length} new invoices`);
-          setInvoices(data.invoices);
-          
-          // Simulate Agent Zero message for new invoices to show activity
-          newInvoices.forEach((invoice: any) => {
-            handleAgentZeroMessage({
-              type: 'invoice_created',
-              data: { invoice }
-            });
-          });
-          
-          // Reset poll count to continue active polling after detecting changes
-          pollCount = 0;
-        }
-        
-        // Update our tracking count
-        previousInvoiceCount = data.invoices.length;
-      } catch (error) {
-        logger.debug('Polling error:', error);
-      }
-    }, 1000); // Poll every 1 second for more responsive updates
-
-    // Store cleanup function for proper cleanup
-    pollingCleanupRef.current = () => clearInterval(pollInterval);
-  };
 
   // Format activity messages to be user-friendly
   const formatActivityMessage = (type: string, data: any) => {

@@ -416,14 +416,8 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
     loadCommunicationData();
   }, [invoice.id, loadCommunicationData]);
 
-  // WebSocket integration for real-time communication updates (development only)
+  // WebSocket integration for real-time communication updates
   useEffect(() => {
-    // Only enable WebSocket in development mode (localhost)
-    if (!apiBaseUrl.includes('localhost')) {
-      console.log('WebSocket disabled in production mode');
-      return;
-    }
-
     const wsUrl = apiBaseUrl.replace('https://', 'wss://').replace('http://', 'ws://');
     const ws = new WebSocket(wsUrl);
     

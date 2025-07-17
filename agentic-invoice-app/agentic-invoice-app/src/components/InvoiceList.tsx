@@ -604,9 +604,23 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           }));
         }
         
-        // Also refresh the invoice list to get latest status from backend
+        // Ensure all processed invoices become clickable after processing completes
         setTimeout(() => {
-          console.log('🔄 Refreshing invoice list after processing completion');
+          console.log('🔄 Ensuring all processed invoices are clickable');
+          setInvoices(prev => prev.map(inv => {
+            // If invoice has completed processing but is still marked as non-clickable, fix it
+            if (inv.agentProcessingCompleted && (inv._canClick === false || inv._isProcessing)) {
+              return {
+                ...inv,
+                _isOptimistic: false,
+                _isProcessing: false,
+                _canClick: true
+              };
+            }
+            return inv;
+          }));
+          
+          // Also refresh the invoice list to get latest status from backend as backup
           loadInvoices();
         }, 1000);
         break;
@@ -2316,13 +2330,19 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                                    (invoice.agentProcessingStarted && !invoice.agentProcessingCompleted) ||
                                    invoice._isOptimistic ||
                                    invoice._isProcessing ||
-                                   invoice._canClick === false;
+                                   (invoice._canClick === false && !invoice.agentProcessingCompleted);
                 
-                const rowClassName = isProcessing 
+                // Special case: If processing is completed, always allow clicks regardless of _canClick
+                const forceClickable = invoice.agentProcessingCompleted || 
+                                     ['approved', 'pending_approval', 'pending_internal_review', 'requires_review'].includes(invoice.status);
+                
+                const canClick = forceClickable || !isProcessing;
+                
+                const rowClassName = !canClick 
                   ? "opacity-60 cursor-not-allowed transition-colors bg-gray-50/50 select-none"
                   : "hover:bg-gray-50 cursor-pointer transition-colors";
                 
-                const titleText = isProcessing 
+                const titleText = !canClick 
                   ? "Invoice is being processed - please wait" 
                   : "Click to view invoice details";
                 
@@ -2332,7 +2352,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                     className={rowClassName}
                     title={titleText}
                     onClick={() => {
-                      if (isProcessing) {
+                      if (!canClick) {
                         console.log('Invoice is processing - click disabled');
                         return;
                       }

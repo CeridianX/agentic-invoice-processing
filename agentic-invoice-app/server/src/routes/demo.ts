@@ -297,62 +297,23 @@ router.post('/create-realistic-scenarios', async (req, res) => {
         }
       }
     } else {
-      // Vercel environment: Simplified processing without Agent Zero
-      console.log('☁️ Vercel environment: Simulating Agent Zero processing with realistic assignments...');
+      // Fallback: Basic processing without Agent Zero
+      console.log('⚠️ Agent Zero not initialized: Using basic processing...');
       
-      // Set realistic processing status for each invoice based on scenario
       for (const invoice of invoices) {
         try {
-          let updateData: any = {
+          const updateData = {
             agentProcessingCompleted: new Date(),
-            processingTimeMs: Math.floor(Math.random() * 3000) + 1000 // 1-4 seconds
+            processingTimeMs: Math.floor(Math.random() * 3000) + 1000,
+            status: invoice.scenario === 'simple' ? 'approved' : 'pending_approval'
           };
-
-          // Handle different scenarios with appropriate assignments
-          switch (invoice.scenario) {
-            case 'simple':
-              updateData.status = 'approved';
-              updateData.assignedTo = null; // Auto-approved, no assignment needed
-              updateData.agentConfidence = 0.95;
-              updateData.agentReasoning = 'Standard office supplies from trusted vendor. Auto-approved based on business rules.';
-              break;
-              
-            case 'complex':
-              updateData.status = 'pending_approval';
-              updateData.assignedTo = 'manager';
-              updateData.agentConfidence = 0.82;
-              updateData.agentReasoning = 'New vendor equipment purchase requires management approval due to amount and vendor trust level.';
-              break;
-              
-            case 'missing_po':
-              updateData.status = 'pending_internal_review';
-              updateData.assignedTo = 'ai-agent';
-              updateData.agentConfidence = 0.85;
-              updateData.agentReasoning = 'Invoice validation failed due to missing PO reference "PO-2024-7839". Automatically generated query to procurement team for clarification. Awaiting response.';
-              updateData.workflowRoute = 'internal_query';
-              updateData.hasIssues = true;
-              break;
-              
-            case 'exceptional':
-              updateData.status = 'requires_review';
-              updateData.assignedTo = 'executive-team';
-              updateData.agentConfidence = 0.70;
-              updateData.agentReasoning = 'Major infrastructure investment requires executive approval due to high amount and business impact.';
-              break;
-              
-            default: // learning and others
-              updateData.status = 'pending_approval';
-              updateData.assignedTo = 'ai-agent';
-              updateData.agentConfidence = 0.88;
-              updateData.agentReasoning = 'Recurring service invoice processed with learning optimization. Standard approval workflow applied.';
-          }
 
           await prisma.invoice.update({
             where: { id: invoice.id },
             data: updateData
           });
           
-          console.log(`✅ Set realistic status for invoice ${invoice.invoiceNumber}: ${invoice.scenario} -> ${updateData.status} (assigned to: ${updateData.assignedTo || 'none'})`);
+          console.log(`✅ Basic processing for invoice ${invoice.invoiceNumber}: ${updateData.status}`);
         } catch (updateError) {
           console.error(`Failed to update invoice ${invoice.invoiceNumber}:`, updateError);
         }

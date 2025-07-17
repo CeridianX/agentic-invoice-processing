@@ -83,7 +83,7 @@ export class ElevenLabsService {
       }
 
       const data = await response.json();
-      return data.voices.map((voice: any) => ({
+      return (data as any).voices.map((voice: any) => ({
         id: voice.voice_id,
         name: voice.name,
         category: voice.category,
@@ -115,11 +115,11 @@ export class ElevenLabsService {
 
       const voice = await response.json();
       return {
-        id: voice.voice_id,
-        name: voice.name,
-        category: voice.category,
-        description: voice.description,
-        settings: voice.settings
+        id: (voice as any).voice_id,
+        name: (voice as any).name,
+        category: (voice as any).category,
+        description: (voice as any).description,
+        settings: (voice as any).settings
       };
     } catch (error) {
       console.error('Error fetching voice info:', error);
@@ -176,12 +176,12 @@ export class ElevenLabsService {
       }
 
       const result = await response.json();
-      console.log(`📝 Transcribed: "${result.text?.substring(0, 100)}${result.text?.length > 100 ? '...' : ''}"`);
+      console.log(`📝 Transcribed: "${(result as any).text?.substring(0, 100)}${(result as any).text?.length > 100 ? '...' : ''}"`);
       
       return {
-        text: result.text || '',
-        language: result.detected_language,
-        speakers: result.speakers || []
+        text: (result as any).text || '',
+        language: (result as any).detected_language,
+        speakers: (result as any).speakers || []
       };
     } catch (error) {
       console.error('Error transcribing audio with ElevenLabs:', error);

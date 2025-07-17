@@ -228,7 +228,7 @@ router.post('/create-realistic-scenarios', async (req, res) => {
       throw new Error(`Service initialization failed: ${initError.message}`);
     }
     
-    console.log(`🎬 Creating realistic demo scenarios... (Environment: ${isVercel ? 'Vercel' : 'Local'})`);
+    console.log(`🎬 Creating realistic demo scenarios...`);
     
     // Create invoices with enhanced error handling
     let invoices;
@@ -240,13 +240,12 @@ router.post('/create-realistic-scenarios', async (req, res) => {
       throw new Error(`Invoice creation failed: ${creationError.message}`);
     }
 
-    if (isLocal) {
-      // Local environment: Full Agent Zero processing
-      console.log('🏠 Local environment: Starting full Agent Zero processing...');
-      
-      // Process each invoice with Agent Zero
-      if (agentZeroService && agentZeroService.isInitialized()) {
-        for (const invoice of invoices) {
+    // Railway environment: Full Agent Zero processing
+    console.log('🚂 Railway environment: Starting full Agent Zero processing...');
+    
+    // Process each invoice with Agent Zero
+    if (agentZeroService && agentZeroService.isInitialized()) {
+      for (const invoice of invoices) {
           console.log(`🤖 Processing invoice ${invoice.invoiceNumber} with Agent Zero...`);
           
           // Missing PO invoices are now properly configured in the SyntheticInvoiceGenerator

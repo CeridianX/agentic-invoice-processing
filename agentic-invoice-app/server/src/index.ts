@@ -323,7 +323,7 @@ async function processInvoicesWithAgentZero() {
                 confidence: result.validation?.confidence || 0.8,
                 approvalRequired: result.workflow?.approvalRequired || false,
                 priority: result.workflow?.priority || 'normal',
-                reasoning: result.agentInsights?.performance?.reasoning || 'Processing completed'
+                reasoning: (result.agentInsights?.performance as any)?.reasoning || 'Processing completed'
               }
             }
           });

@@ -39,7 +39,7 @@ export class DatabaseMCP {
       let vendor = null;
       if (extractedData.vendor) {
         vendor = await this.prisma.vendor.upsert({
-          where: { name: extractedData.vendor },
+          where: { id: extractedData.vendor || 'default-vendor' },
           update: {},
           create: {
             name: extractedData.vendor,

@@ -258,9 +258,9 @@ PORTFOLIO HEALTH INDICATORS:
       }
 
       const result = await response.json();
-      console.log('✅ Jarvis agent created successfully:', result.agent_id);
+      console.log('✅ Jarvis agent created successfully:', (result as any).agent_id);
       
-      return result.agent_id;
+      return (result as any).agent_id;
     } catch (error) {
       console.error('Error creating Jarvis conversational agent:', error);
       return null;
@@ -296,7 +296,7 @@ PORTFOLIO HEALTH INDICATORS:
       }
 
       const result = await response.json();
-      return result.signed_url;
+      return (result as any).signed_url;
     } catch (error) {
       console.error('Error getting signed URL for Jarvis:', error);
       return null;

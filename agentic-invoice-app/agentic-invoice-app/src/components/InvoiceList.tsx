@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { updateQueueCountOptimistically, decrementQueueCountOptimistically } from './AgentStatusBar';
 import { motion } from 'framer-motion';
 import { Sparkles, Zap, ChevronRight, ChevronDown, Brain, Activity, CheckCircle, AlertCircle, X, BarChart3 } from 'lucide-react';
 
@@ -494,6 +495,25 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           status: 'processing'
         } : null);
         
+        // 🚀 OPTIMISTIC UPDATE: Update invoice status based on agent step
+        if (message.data.step && message.data.invoiceId) {
+          const stepAction = message.data.step.action;
+          let optimisticStatus = 'processing';
+          
+          // Predict status based on agent step
+          if (stepAction === 'validate_invoice') {
+            optimisticStatus = 'validating';
+          } else if (stepAction === 'route_approval') {
+            optimisticStatus = 'routing';
+          }
+          
+          setInvoices(prev => prev.map(inv => 
+            inv.id === message.data.invoiceId 
+              ? { ...inv, status: optimisticStatus }
+              : inv
+          ));
+        }
+        
         // Update specific agent status to working
         if (message.data.step && message.data.step.agentName) {
           setAgentStatuses(prev => ({
@@ -546,13 +566,38 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
           }));
         }, 2500);
         
-        // Update specific invoice instead of reloading entire list
+        // 🚀 OPTIMISTIC UPDATE: Update invoice with final status and assignment
         if (message.data.invoiceId) {
-          setInvoices(prev => prev.map(invoice => 
-            invoice.id === message.data.invoiceId 
-              ? { ...invoice, agentProcessingCompleted: new Date().toISOString() }
-              : invoice
-          ));
+          setInvoices(prev => prev.map(invoice => {
+            if (invoice.id === message.data.invoiceId) {
+              // Predict final status and assignment based on invoice characteristics
+              let finalStatus = 'processed';
+              let assignedTo = null;
+              
+              // Optimistic assignment logic based on scenario
+              if (invoice.scenario === 'missing_po') {
+                finalStatus = 'pending_internal_review';
+                assignedTo = 'ai-invoice-agent';
+              } else if (invoice.amount && invoice.amount > 10000) {
+                finalStatus = 'pending_approval';
+                assignedTo = 'executive-team';
+              } else if (invoice.amount && invoice.amount > 1000) {
+                finalStatus = 'pending_approval';
+                assignedTo = 'manager';
+              } else {
+                finalStatus = 'approved';
+                assignedTo = null; // Auto-approved
+              }
+              
+              return { 
+                ...invoice, 
+                agentProcessingCompleted: new Date().toISOString(),
+                status: finalStatus,
+                assignedTo
+              };
+            }
+            return invoice;
+          }));
         }
         
         // Also refresh the invoice list to get latest status from backend
@@ -583,6 +628,9 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
       case 'invoice_processing_started':
         console.log('🎯 INVOICE_PROCESSING_STARTED EVENT:', message.data);
         console.log('📊 Scenario received:', message.data.scenario);
+        
+        // 🚀 OPTIMISTIC UPDATE: Decrement queue counter immediately
+        decrementQueueCountOptimistically();
         
         // Update invoice status to show it's being processed
         setInvoices(prev => prev.map(inv => 
@@ -927,7 +975,7 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
 
     return (
       <span 
-        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusClass} cursor-help`}
+        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusClass} cursor-help transition-all duration-300 ease-in-out`}
         title={getTooltipText()}
       >
         {processStatus === 'Processing' && <span className="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>}
@@ -2221,11 +2269,11 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                     <td className="py-3 px-4">
                       <div className="text-xs truncate">
                         {invoice.status === 'pending_internal_review' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700 transition-all duration-300 ease-in-out">
                             AI Agent
                           </span>
                         ) : (
-                          <span className="text-gray-600">
+                          <span className="text-gray-600 transition-all duration-300 ease-in-out">
                             {invoice.assignedTo || 'Unassigned'}
                           </span>
                         )}
@@ -2365,6 +2413,10 @@ export default function InvoiceList({ onSelectInvoice }: InvoiceListProps) {
                     
                     try {
                       console.log('🎬 Starting demo scenario creation...');
+                      
+                      // 🚀 OPTIMISTIC UPDATE: Immediately show 5 invoices in queue
+                      updateQueueCountOptimistically(5);
+                      
                       const response = await fetch(`${apiBaseUrl}/api/demo/create-realistic-scenarios`, { 
                         method: 'POST',
                         headers: {

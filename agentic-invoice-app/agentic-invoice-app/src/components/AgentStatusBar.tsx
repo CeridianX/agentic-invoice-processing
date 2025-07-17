@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import { invoiceService } from '../services/api';
 
+// Global queue state for optimistic updates
+let globalQueueCount = 0;
+let globalQueueListeners: ((count: number) => void)[] = [];
+
+export const updateQueueCountOptimistically = (count: number) => {
+  globalQueueCount = count;
+  globalQueueListeners.forEach(listener => listener(count));
+};
+
+export const decrementQueueCountOptimistically = () => {
+  globalQueueCount = Math.max(0, globalQueueCount - 1);
+  globalQueueListeners.forEach(listener => listener(globalQueueCount));
+};
+
 export default function AgentStatusBar() {
   const [agentStatus, setAgentStatus] = useState('AI Agent Active');
   const [activity, setActivity] = useState('Processing invoice patterns...');
@@ -15,31 +29,44 @@ export default function AgentStatusBar() {
     'Validating tax calculations...'
   ];
 
-  // Fetch queue status
-  const fetchQueueStatus = async () => {
+  // Fetch queue status (but only for fallback, optimistic updates take priority)
+  const fetchQueueStatus = async (forceUpdate = false) => {
     try {
       const queueStatus = await invoiceService.getQueueStatus();
-      setQueueCount(queueStatus.total);
+      // Only update if we don't have optimistic updates or if forced
+      if (forceUpdate || globalQueueCount === 0) {
+        const newCount = queueStatus.total;
+        globalQueueCount = newCount;
+        setQueueCount(newCount);
+      }
     } catch (error) {
       console.error('Failed to fetch queue status:', error);
     }
   };
 
   useEffect(() => {
+    // Register listener for optimistic updates
+    const handleOptimisticUpdate = (count: number) => {
+      setQueueCount(count);
+    };
+    globalQueueListeners.push(handleOptimisticUpdate);
+
     // Initial fetch
-    fetchQueueStatus();
+    fetchQueueStatus(true);
 
     // Activity rotation
     const activityInterval = setInterval(() => {
       setActivity(activities[Math.floor(Math.random() * activities.length)]);
     }, 3000);
 
-    // Queue status polling
-    const queueInterval = setInterval(fetchQueueStatus, 2000);
+    // Reduced polling frequency since we have optimistic updates
+    const queueInterval = setInterval(() => fetchQueueStatus(false), 5000);
 
     return () => {
       clearInterval(activityInterval);
       clearInterval(queueInterval);
+      // Remove listener
+      globalQueueListeners = globalQueueListeners.filter(l => l !== handleOptimisticUpdate);
     };
   }, []);
 
@@ -60,7 +87,7 @@ export default function AgentStatusBar() {
           <div className="flex items-center space-x-4">
             <div className="text-right">
               <div className="text-xs text-gray-500">Queue</div>
-              <div className="text-lg font-semibold">{queueCount}</div>
+              <div className="text-lg font-semibold transition-all duration-300 ease-in-out">{queueCount}</div>
             </div>
             <div className="text-right">
               <div className="text-xs text-gray-500">Saved Today</div>

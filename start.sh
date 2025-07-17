@@ -36,6 +36,10 @@ else
   fi
 fi
 
+# Generate Prisma client (in case it's missing)
+echo "📦 Generating Prisma client..."
+npx prisma generate || echo "⚠️  Prisma generate failed, continuing..."
+
 # Start the application
-echo "🎯 Starting Node.js server..."
+echo "🎯 Starting Node.js server on port ${PORT}..."
 exec npm start

@@ -94,25 +94,36 @@ app.use('/api/communication', communicationRoutes);
 // app.use('/api/jarvis-debug', jarvisToolsDebugRoutes);
 
 // Serve static files from frontend build
-// In production, __dirname is /app/agentic-invoice-app/server/dist
-// Frontend build is at /app/agentic-invoice-app/agentic-invoice-app/dist
-const frontendDistPath = process.env.NODE_ENV === 'production' 
-  ? '/app/agentic-invoice-app/agentic-invoice-app/dist'
-  : path.join(__dirname, '../agentic-invoice-app/dist');
+// Try multiple possible paths
+const possiblePaths = [
+  '/app/agentic-invoice-app/agentic-invoice-app/dist',
+  path.join(__dirname, '../../agentic-invoice-app/dist'),
+  path.join(__dirname, '../agentic-invoice-app/dist'),
+  path.join(process.cwd(), 'agentic-invoice-app/agentic-invoice-app/dist'),
+  path.join(process.cwd(), 'dist')
+];
+
+let frontendDistPath = possiblePaths[0]; // default
 
 console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`__dirname: ${__dirname}`);
-console.log(`Frontend static files path: ${frontendDistPath}`);
+console.log(`process.cwd(): ${process.cwd()}`);
+console.log('Checking possible frontend paths...');
 
-// Check if the directory exists
-if (fs.existsSync(frontendDistPath)) {
-  console.log(`✅ Frontend directory exists at: ${frontendDistPath}`);
-  const files = fs.readdirSync(frontendDistPath);
-  console.log(`Files in frontend directory: ${files.join(', ')}`);
-} else {
-  console.log(`❌ Frontend directory does NOT exist at: ${frontendDistPath}`);
+for (const possiblePath of possiblePaths) {
+  console.log(`Checking: ${possiblePath}`);
+  if (fs.existsSync(possiblePath)) {
+    frontendDistPath = possiblePath;
+    console.log(`✅ Found frontend directory at: ${possiblePath}`);
+    const files = fs.readdirSync(possiblePath);
+    console.log(`Files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? '...' : ''}`);
+    break;
+  } else {
+    console.log(`❌ Not found: ${possiblePath}`);
+  }
 }
 
+console.log(`Using frontend path: ${frontendDistPath}`);
 app.use(express.static(frontendDistPath));
 
 // Handle React Router - serve index.html for all non-API routes
@@ -127,7 +138,10 @@ app.get('*', (req, res) => {
           error: 'Frontend not found', 
           details: err.message,
           frontendPath: frontendDistPath,
-          indexPath: indexPath
+          indexPath: indexPath,
+          actualFrontendPath: frontendDistPath,
+          dirname: __dirname,
+          cwd: process.cwd()
         });
       }
     });

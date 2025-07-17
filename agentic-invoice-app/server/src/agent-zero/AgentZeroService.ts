@@ -189,6 +189,9 @@ export class AgentZeroService extends EventEmitter {
       // Handle special case for missing PO scenario
       if (invoiceData.scenario === 'missing_po') {
         await this.handleMissingPOScenario(invoiceId, invoiceData, result);
+        
+        // Ensure communication is initiated through the communication agent
+        await this.initiateMissingPOCommunication(invoiceId, invoiceData);
       }
       
       // Update invoice in database with results
@@ -268,34 +271,58 @@ export class AgentZeroService extends EventEmitter {
     try {
       console.log(`🤖 Handling missing PO scenario for invoice ${invoiceData.invoiceNumber}`);
       
-      // Assign to AI agent specifically
+      // The communication should already be handled by the Agent Zero orchestration flow
+      // when ValidationAgent sets requiresCommunication = true and communicationReason = 'missing_po_inquiry'
+      
+      // Just ensure the invoice has the right status for missing PO
       await this.prisma.invoice.update({
         where: { id: invoiceId },
         data: {
-          assignedTo: 'ai-invoice-agent',
           status: 'pending_internal_review',
           notes: `Invoice references PO "PO-2024-7839" which is not found in our system. AI agent is querying procurement team for clarification.`,
-          agentReasoning: 'Missing PO reference detected. Initiating communication with procurement team to resolve.'
+          agentReasoning: 'Missing PO reference detected. Communication with procurement team initiated.'
         }
       });
+      
+      console.log(`✅ Missing PO scenario handled for invoice ${invoiceData.invoiceNumber}`);
+      
+    } catch (error) {
+      console.error('Error handling missing PO scenario:', error);
+    }
+  }
 
-      // Trigger communication with procurement team
-      const agentZero = (global as any).agentZeroInstance;
-      if (agentZero) {
-        // Emit communication initiated event
-        agentZero.emit('communication_initiated', {
-          invoiceId: invoiceId,
-          invoiceNumber: invoiceData.invoiceNumber,
+  private async initiateMissingPOCommunication(invoiceId: string, invoiceData: any): Promise<void> {
+    try {
+      console.log(`📧 Initiating communication for missing PO invoice ${invoiceData.invoiceNumber}`);
+      
+      // Get the communication agent from the orchestrator
+      const communicationAgent = this.orchestrator.agents?.get('CommunicationAgent');
+      if (!communicationAgent) {
+        console.error('CommunicationAgent not found in orchestrator');
+        return;
+      }
+
+      // Call the communication agent directly to handle missing PO
+      const result = await communicationAgent.handleMissingPOCommunication(invoiceData);
+      
+      if (result.success) {
+        console.log(`✅ Communication successfully initiated for invoice ${invoiceData.invoiceNumber}`);
+        
+        // Emit the communication event for WebSocket broadcasting
+        this.emit('communication_initiated', {
+          invoiceId,
+          emailId: result.emailMessage?.id,
+          conversationId: result.emailMessage?.conversationId,
           scenario: 'missing_po',
           reason: 'missing_po_inquiry',
           timestamp: new Date()
         });
-
-        console.log(`📧 Communication initiated for missing PO invoice ${invoiceData.invoiceNumber}`);
+      } else {
+        console.warn('❌ Failed to initiate communication for missing PO');
       }
       
     } catch (error) {
-      console.error('Error handling missing PO scenario:', error);
+      console.error('Error initiating missing PO communication:', error);
     }
   }
 

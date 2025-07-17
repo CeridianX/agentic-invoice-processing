@@ -32,32 +32,37 @@ const prisma = new PrismaClient();
 let agentZero: AgentZeroService;
 let agentInterval: NodeJS.Timeout;
 
-// Delay Agent Zero initialization to avoid blocking server startup
-setTimeout(async () => {
+// Import Agent Zero manager
+import { AgentZeroManager } from './utils/AgentZeroManager';
+
+// Initialize Agent Zero using the manager
+const initializeAgentZero = async () => {
   try {
-    agentZero = new AgentZeroService();
-    await agentZero.initialize(); // Properly initialize the service
-    (global as any).agentZeroInstance = agentZero;
+    console.log('🚀 Initializing Agent Zero via manager...');
+    agentZero = await AgentZeroManager.getOrCreateInstance();
     setupAgentZeroListeners(); // Setup WebSocket listeners
-    console.log('Agent Zero instance created, initialized, and listeners setup');
+    console.log('✅ Agent Zero initialized and listeners setup complete');
     
     // Broadcast initialization complete to all connected clients
-    if (agentZero.isInitialized && agentZero.isInitialized()) {
+    if (agentZero.isInitialized()) {
       try {
         const agentStatus = await agentZero.getAgentStatus();
         broadcastToClients({
           type: 'agent_zero_status',
           data: agentStatus
         });
-        console.log('Broadcasted Agent Zero ready status to all clients');
+        console.log('✅ Broadcasted Agent Zero ready status to all clients');
       } catch (error) {
-        console.error('Error broadcasting initial agent status:', error);
+        console.error('❌ Error broadcasting initial agent status:', error);
       }
     }
   } catch (error) {
-    console.error('Failed to create Agent Zero instance:', error);
+    console.error('❌ Failed to initialize Agent Zero:', error);
   }
-}, 1000);
+};
+
+// Start Agent Zero initialization (with small delay to avoid blocking server startup)
+setTimeout(initializeAgentZero, 100);
 
 app.use(cors());
 app.use(express.json());

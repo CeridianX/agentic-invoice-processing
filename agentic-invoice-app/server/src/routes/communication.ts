@@ -1,14 +1,15 @@
 import express from 'express';
 import { CommunicationAgent } from '../agent-zero/agents/CommunicationAgent';
 import { EmailService } from '../services/EmailService';
+import { AgentZeroManager } from '../utils/AgentZeroManager';
 
 const router = express.Router();
 
-// Get the CommunicationAgent instance from global Agent Zero
+// Get the CommunicationAgent instance from Agent Zero Manager
 function getCommunicationAgent(): CommunicationAgent | null {
   try {
-    const agentZero = (global as any).agentZeroInstance;
-    if (!agentZero || !agentZero.orchestrator) {
+    const agentZero = AgentZeroManager.getCurrentInstance();
+    if (!agentZero || !agentZero.isInitialized() || !agentZero.orchestrator) {
       return null;
     }
     
@@ -20,12 +21,29 @@ function getCommunicationAgent(): CommunicationAgent | null {
   }
 }
 
+// Async version that waits for Agent Zero to be ready
+async function getCommunicationAgentAsync(): Promise<CommunicationAgent | null> {
+  try {
+    const agentZero = await AgentZeroManager.getOrCreateInstance();
+    if (!agentZero || !agentZero.orchestrator) {
+      return null;
+    }
+    
+    const communicationAgent = agentZero.orchestrator.agents?.get('CommunicationAgent');
+    return communicationAgent || null;
+  } catch (error) {
+    console.error('Error getting CommunicationAgent async:', error);
+    return null;
+  }
+}
+
 // Get conversation data for a specific invoice
 router.get('/conversations/:invoiceId', async (req, res) => {
   try {
     const { invoiceId } = req.params;
     
-    const communicationAgent = getCommunicationAgent();
+    // Try to get communication agent with async initialization
+    const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
       return res.status(503).json({ 
         error: 'Communication service not available',
@@ -86,7 +104,7 @@ router.get('/conversations/:invoiceId', async (req, res) => {
 // Get all conversations with summary
 router.get('/conversations', async (req, res) => {
   try {
-    const communicationAgent = getCommunicationAgent();
+    const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
       return res.status(503).json({ 
         error: 'Communication service not available' 
@@ -133,7 +151,7 @@ router.post('/invoke/:invoiceId', async (req, res) => {
     const { invoiceId } = req.params;
     const { scenario = 'missing_po', customInstructions } = req.body;
     
-    const communicationAgent = getCommunicationAgent();
+    const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
       return res.status(503).json({ 
         error: 'Communication service not available' 
@@ -203,7 +221,7 @@ router.post('/advance/:conversationId', async (req, res) => {
   try {
     const { conversationId } = req.params;
     
-    const communicationAgent = getCommunicationAgent();
+    const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
       return res.status(503).json({ 
         error: 'Communication service not available' 
@@ -418,7 +436,7 @@ router.get('/step-info/:conversationId', async (req, res) => {
   try {
     const { conversationId } = req.params;
     
-    const communicationAgent = getCommunicationAgent();
+    const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
       return res.status(503).json({ 
         error: 'Communication service not available' 
@@ -447,7 +465,7 @@ router.get('/step-info/:conversationId', async (req, res) => {
 // Test OpenAI connection
 router.get('/ai-status', async (req, res) => {
   try {
-    const communicationAgent = getCommunicationAgent();
+    const communicationAgent = await getCommunicationAgentAsync();
     if (!communicationAgent) {
       return res.json({
         available: false,

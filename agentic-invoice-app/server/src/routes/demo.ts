@@ -2,6 +2,7 @@ import express from 'express';
 import { SyntheticInvoiceGenerator } from '../demo/SyntheticInvoiceGenerator';
 import { AgentZeroService } from '../agent-zero/AgentZeroService';
 import { PrismaClient } from '@prisma/client';
+import { AgentZeroManager } from '../utils/AgentZeroManager';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -17,8 +18,16 @@ const initializeServices = async () => {
   if (!invoiceGenerator) {
     invoiceGenerator = new SyntheticInvoiceGenerator();
   }
+  
+  // Use the Agent Zero manager for consistent initialization
   if (!agentZeroService) {
-    agentZeroService = AgentZeroService.getInstance();
+    try {
+      agentZeroService = await AgentZeroManager.getOrCreateInstance();
+      console.log('✅ Agent Zero service ready via manager');
+    } catch (error) {
+      console.error('❌ Failed to initialize Agent Zero via manager:', error);
+      // Don't throw error - let the route handle the missing service gracefully
+    }
   }
 };
 

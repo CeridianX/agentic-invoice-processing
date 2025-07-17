@@ -93,13 +93,31 @@ app.use('/api/communication', communicationRoutes);
 // app.use('/api/jarvis-debug', jarvisToolsDebugRoutes);
 
 // Serve static files from frontend build
-const frontendDistPath = path.join(__dirname, '../agentic-invoice-app/dist');
+// In production, __dirname is /app/agentic-invoice-app/server/dist
+// Frontend build is at /app/agentic-invoice-app/agentic-invoice-app/dist
+const frontendDistPath = process.env.NODE_ENV === 'production' 
+  ? path.join(__dirname, '../../agentic-invoice-app/dist')
+  : path.join(__dirname, '../agentic-invoice-app/dist');
+
+console.log(`Frontend static files path: ${frontendDistPath}`);
 app.use(express.static(frontendDistPath));
 
 // Handle React Router - serve index.html for all non-API routes
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(frontendDistPath, 'index.html'));
+    const indexPath = path.join(frontendDistPath, 'index.html');
+    console.log(`Serving index.html from: ${indexPath}`);
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        console.error('Error serving index.html:', err);
+        res.status(500).json({ 
+          error: 'Frontend not found', 
+          details: err.message,
+          frontendPath: frontendDistPath,
+          indexPath: indexPath
+        });
+      }
+    });
   } else {
     res.status(404).json({ error: 'API endpoint not found' });
   }

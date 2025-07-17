@@ -32,6 +32,14 @@ RUN cd agentic-invoice-app/agentic-invoice-app && npm run build
 # Build backend
 RUN cd agentic-invoice-app/server && npm run build
 
+# Debug: List directory structure
+RUN echo "=== Directory structure ===" && \
+    ls -la /app/ && \
+    echo "=== Frontend dist ===" && \
+    ls -la /app/agentic-invoice-app/agentic-invoice-app/dist/ || echo "Frontend dist not found" && \
+    echo "=== Backend dist ===" && \
+    ls -la /app/agentic-invoice-app/server/dist/ || echo "Backend dist not found"
+
 # Expose port
 EXPOSE 3000
 

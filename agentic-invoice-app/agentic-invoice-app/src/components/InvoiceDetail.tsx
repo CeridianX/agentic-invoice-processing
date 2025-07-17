@@ -115,6 +115,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
   const [fullInvoice, setFullInvoice] = useState<Invoice | null>(null);
   const [communicationData, setCommunicationData] = useState<CommunicationData | null>(null);
   const [communicationLoading, setCommunicationLoading] = useState(false);
+  const [communicationError, setCommunicationError] = useState<string | null>(null);
   const [stepInfo, setStepInfo] = useState<ConversationStepInfo | null>(null);
   const [advancingStep, setAdvancingStep] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
@@ -140,6 +141,7 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
     
     loadingRef.current = true;
     setCommunicationLoading(true);
+    setCommunicationError(null);
     console.log(`🔍 [${new Date().toISOString()}] Loading communication data for invoice: ${invoice.id}`);
     try {
       const url = `${apiBaseUrl}/api/communication/conversations/${invoice.id}`;
@@ -282,9 +284,11 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
         console.error(`🔍 Response not ok: ${response.status}`);
         const errorText = await response.text();
         console.error(`🔍 Error response: ${errorText}`);
+        setCommunicationError(`Failed to load communication data: ${response.status}`);
       }
     } catch (error) {
       console.error('Error fetching communication data:', error);
+      setCommunicationError(`Failed to load communication data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setCommunicationLoading(false);
       loadingRef.current = false;
@@ -927,7 +931,53 @@ export default function InvoiceDetail({ invoice, onBack }: InvoiceDetailProps) {
                 No communication history for this invoice. AI communication will be triggered automatically if issues are detected during processing.
               </p>
             </div>
-          ) : null}
+          ) : communicationError ? (
+            // Show error state
+            <div className="bg-red-50 rounded-xl border border-red-200 p-6">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Communication</h2>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  Error
+                </span>
+              </div>
+              <div className="text-sm text-red-700 mb-3">
+                {communicationError}
+              </div>
+              <button
+                onClick={() => loadCommunicationData()}
+                className="text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            // Show fallback when no conversation exists
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-8 h-8 bg-gray-400 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Communication</h2>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  No active conversation
+                </span>
+              </div>
+              <div className="text-sm text-gray-600">
+                {currentInvoice.scenario === 'missing_po' ? (
+                  <p>This invoice is missing a PO reference, but no communication has been initiated yet.</p>
+                ) : (
+                  <p>No communication required for this invoice type.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* AI Analysis */}
           {currentInvoice.agentActivities && currentInvoice.agentActivities.length > 0 && (

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "install:all": "npm install && cd agentic-invoice-app/agentic-invoice-app && npm install && cd ../server && npm install",
+    "install:all": "cd agentic-invoice-app/agentic-invoice-app && npm install && cd ../server && npm install",
     "build:frontend": "cd agentic-invoice-app/agentic-invoice-app && npm run build",
     "build:backend": "cd agentic-invoice-app/server && npm run build",
     "build": "npm run build:frontend && npm run build:backend",

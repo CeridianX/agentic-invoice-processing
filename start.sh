@@ -33,7 +33,7 @@ else
   else
     echo "❌ Failed to setup database"
     echo "🔍 Testing database connection..."
-    npx prisma db execute --stdin <<< "SELECT 1" || echo "Database connection test failed"
+    echo "SELECT 1" | npx prisma db execute --stdin || echo "Database connection test failed"
     
     # Try to start anyway - the app might work without migrations
     echo "⚠️  Starting app without database migrations..."

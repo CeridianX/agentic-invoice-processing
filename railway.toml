@@ -4,6 +4,5 @@ builder = "dockerfile"
 [deploy]
 restartPolicyMaxRetries = 3
 
-[variables]
-NODE_ENV = "production"
-PORT = "3000"
+# Railway will provide PORT and DATABASE_URL
+# We only need to set NODE_ENV

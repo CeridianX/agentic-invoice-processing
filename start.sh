@@ -1,15 +1,21 @@
 #!/bin/sh
 
 echo "🚀 Starting application..."
-echo "📊 Environment: ${NODE_ENV}"
-echo "🔌 Port: ${PORT}"
+echo "📊 NODE_ENV: ${NODE_ENV}"
+echo "🔌 PORT: ${PORT}"
+
+# Export environment variables to ensure they're available
+export NODE_ENV="${NODE_ENV:-production}"
+export PORT="${PORT:-3000}"
 
 # Check if DATABASE_URL is set
 if [ -z "$DATABASE_URL" ]; then
   echo "❌ DATABASE_URL is not set!"
+  echo "Available environment variables:"
+  env | grep -E "DATABASE|NODE_ENV|PORT" || echo "No relevant vars found"
   exit 1
 else
-  echo "✅ DATABASE_URL is set"
+  echo "✅ DATABASE_URL is set (length: ${#DATABASE_URL})"
 fi
 
 # Navigate to server directory

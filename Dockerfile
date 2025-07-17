@@ -20,6 +20,9 @@ RUN cd agentic-invoice-app/server && npm install --production=false
 # Copy source code
 COPY . .
 
+# Generate Prisma client (must be done after copying source code to have access to schema)
+RUN cd agentic-invoice-app/server && npx prisma generate
+
 # Build frontend
 RUN cd agentic-invoice-app/agentic-invoice-app && npm run build
 

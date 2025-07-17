@@ -1,6 +1,9 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
 
 [deploy]
-startCommand = "npm run start:prod"
 healthcheckPath = "/health"
+
+[variables]
+NODE_ENV = "production"
+PORT = "3000"

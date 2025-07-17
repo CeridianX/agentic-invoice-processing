@@ -7,6 +7,7 @@ export class WebSocketService {
   constructor(url?: string) {
     // Use relative WebSocket URL based on current location
     this.url = url || (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host;
+    console.log(`🔌 WebSocket connecting to: ${this.url}`);
     this.connect();
   }
 
@@ -15,7 +16,7 @@ export class WebSocketService {
       this.ws = new WebSocket(this.url);
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('✅ WebSocket connected successfully');
         if (this.reconnectTimeout) {
           clearTimeout(this.reconnectTimeout);
           this.reconnectTimeout = null;
@@ -31,13 +32,13 @@ export class WebSocketService {
         }
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      this.ws.onclose = (event) => {
+        console.log(`❌ WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
         this.reconnect();
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('❌ WebSocket error:', error);
       };
     } catch (error) {
       console.error('Failed to create WebSocket:', error);

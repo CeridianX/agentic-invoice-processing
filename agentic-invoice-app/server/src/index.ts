@@ -153,8 +153,9 @@ app.get('*', (req, res) => {
 });
 
 // WebSocket connection for real-time Agent Zero updates
-wss.on('connection', async (ws) => {
-  console.log('Client connected');
+wss.on('connection', async (ws, req) => {
+  console.log(`🔌 WebSocket client connected from ${req.socket.remoteAddress}`);
+  console.log(`📊 Total connected clients: ${wss.clients.size}`);
 
   // Send initial Agent Zero status if available
   if (agentZero && agentZero.isInitialized && agentZero.isInitialized()) {
@@ -184,11 +185,11 @@ wss.on('connection', async (ws) => {
   }
 
   ws.on('close', () => {
-    console.log('Client disconnected');
+    console.log(`🔌 WebSocket client disconnected. Remaining clients: ${wss.clients.size}`);
   });
 
   ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+    console.error('🔌 WebSocket error:', error);
   });
 });
 
@@ -317,11 +318,16 @@ function broadcastToClients(message: any) {
   
   console.log(`📡 Broadcasting ${message.type} to ${openClients.length} connected clients`);
   
+  if (openClients.length === 0) {
+    console.log('⚠️  No connected clients to broadcast to');
+    return;
+  }
+  
   openClients.forEach((client) => {
     try {
       client.send(JSON.stringify(message));
     } catch (error) {
-      console.error('Error sending WebSocket message to client:', error);
+      console.error('❌ Error sending WebSocket message to client:', error);
     }
   });
 }

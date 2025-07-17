@@ -4,8 +4,9 @@ export class WebSocketService {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private url: string;
 
-  constructor(url: string = 'ws://localhost:3001') {
-    this.url = url;
+  constructor(url?: string) {
+    // Use relative WebSocket URL based on current location
+    this.url = url || (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host;
     this.connect();
   }
 

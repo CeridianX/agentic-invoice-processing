@@ -9,9 +9,7 @@ const prisma = new PrismaClient();
 let invoiceGenerator: SyntheticInvoiceGenerator | null = null;
 let agentZeroService: AgentZeroService | null = null;
 
-// Environment detection
-const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
-const isLocal = !isVercel;
+// Railway environment - full Agent Zero support available
 
 // Initialize services
 const initializeServices = async () => {
@@ -219,7 +217,7 @@ router.post('/create-batch/:count', async (req, res) => {
 // Create realistic demo scenarios
 router.post('/create-realistic-scenarios', async (req, res) => {
   try {
-    console.log(`🎬 Starting realistic demo scenarios creation... (Environment: ${isVercel ? 'Vercel' : 'Local'})`);
+    console.log(`🎬 Starting realistic demo scenarios creation...`);
     
     // Initialize services with better error handling
     try {
@@ -366,15 +364,15 @@ router.post('/create-realistic-scenarios', async (req, res) => {
       success: true,
       invoices,
       count: invoices.length,
-      message: `Created realistic demo scenarios${isVercel ? ' (Vercel mode - simulated Agent Zero processing)' : ''}`,
-      environment: isVercel ? 'vercel' : 'local'
+      message: `Created realistic demo scenarios`,
+      environment: 'railway'
     });
   } catch (error) {
     console.error('Error creating realistic scenarios:', error);
     res.status(500).json({ 
       error: 'Failed to create realistic scenarios', 
       details: error instanceof Error ? error.message : 'Unknown error',
-      environment: isVercel ? 'vercel' : 'local'
+      environment: 'railway'
     });
   }
 });

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
 
 import invoiceRoutes from './routes/invoices';
 import vendorRoutes from './routes/vendors';
@@ -90,6 +91,19 @@ app.use('/api/communication', communicationRoutes);
 // app.use('/api/jarvis', jarvisRoutes);
 // app.use('/api/jarvis-tools', jarvisToolsRoutes);
 // app.use('/api/jarvis-debug', jarvisToolsDebugRoutes);
+
+// Serve static files from frontend build
+const frontendDistPath = path.join(__dirname, '../agentic-invoice-app/dist');
+app.use(express.static(frontendDistPath));
+
+// Handle React Router - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  } else {
+    res.status(404).json({ error: 'API endpoint not found' });
+  }
+});
 
 // WebSocket connection for real-time Agent Zero updates
 wss.on('connection', async (ws) => {

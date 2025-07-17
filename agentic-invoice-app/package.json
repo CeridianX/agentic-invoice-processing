@@ -1,12 +1,27 @@
 {
-  "name": "agentic-invoice-app",
+  "name": "agentic-invoice-app-monorepo",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "install:all": "npm install && cd agentic-invoice-app && npm install && cd ../server && npm install",
+    "build:frontend": "cd agentic-invoice-app && npm run build",
+    "build:backend": "cd server && npm run build",
+    "build": "npm run build:frontend && npm run build:backend",
+    "start:prod": "cd server && npm start",
+    "dev:frontend": "cd agentic-invoice-app && npm run dev",
+    "dev:backend": "cd server && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "postinstall": "npm run install:all"
   },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "workspaces": [
+    "agentic-invoice-app",
+    "server"
+  ],
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "Agentic Invoice Processing Application - Full Stack"
 }

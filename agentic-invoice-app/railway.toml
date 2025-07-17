@@ -1,0 +1,16 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npm run start:prod"
+healthcheckPath = "/api/health"
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "agentic-invoice-app"
+source = "."
+
+[services.variables]
+NODE_ENV = "production"
+PORT = "3000"

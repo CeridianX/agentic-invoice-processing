@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 // API base URL configuration
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://server-eb0g35lmt-xelix-projects.vercel.app';
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
 // Define types directly in the component
 interface Vendor {

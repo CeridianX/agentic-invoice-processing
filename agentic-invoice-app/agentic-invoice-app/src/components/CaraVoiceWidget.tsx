@@ -51,7 +51,7 @@ export default function CaraVoiceWidget({
       setAgentStatus('listening');
       
       // Apply saved mute state
-      conversation.setVolume(isMuted ? 0 : 1);
+      conversation.setVolume({ volume: isMuted ? 0 : 1 });
     },
     onDisconnect: (reason) => {
       console.log('🤖 Cara disconnected. Reason:', reason);
@@ -63,7 +63,7 @@ export default function CaraVoiceWidget({
     onMessage: (message) => {
       logger.debug('🗣️ Cara said:', message);
       const messageText = typeof message === 'string' ? message : 
-                         message?.message || message?.content || 'Message received';
+                         message?.message || 'Message received';
       addToHistory('cara', messageText);
       setAgentStatus('listening');
     },
@@ -90,7 +90,7 @@ export default function CaraVoiceWidget({
     onToolCall: async (toolCall) => {
       console.log('🔧 Tool call received:', toolCall);
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL;
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
         let endpoint = '';
         let body = {};
         
@@ -108,17 +108,36 @@ export default function CaraVoiceWidget({
           endpoint = '/api/jarvis-tools/get-recent-activity';
         }
         
+        if (!endpoint) {
+          console.warn('🚨 Unknown tool call:', toolCall);
+          return { error: 'Unknown tool call' };
+        }
+        
+        console.log(`🔧 Making API call to: ${baseUrl}${endpoint}`);
+        
         const response = await fetch(`${baseUrl}${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
         
+        if (!response.ok) {
+          console.error('🚨 API call failed:', response.status, response.statusText);
+          return { 
+            error: `API call failed: ${response.status} ${response.statusText}`,
+            result: 'I apologize, but I cannot access the invoice data right now. Please try again later.'
+          };
+        }
+        
         const data = await response.json();
+        console.log('✅ Tool call successful:', data);
         return data;
       } catch (error) {
-        console.error('Tool execution error:', error);
-        return { error: 'Failed to execute tool' };
+        console.error('🚨 Tool execution error:', error);
+        return { 
+          error: 'Failed to execute tool',
+          result: 'I apologize, but I cannot access the invoice data right now. There may be a connectivity issue. Please try again later.'
+        };
       }
     }
   });
@@ -345,7 +364,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
     
     // Apply volume change immediately
     if (conversation.status === 'connected') {
-      conversation.setVolume(newMutedState ? 0 : 1);
+      conversation.setVolume({ volume: newMutedState ? 0 : 1 });
     }
   };
 

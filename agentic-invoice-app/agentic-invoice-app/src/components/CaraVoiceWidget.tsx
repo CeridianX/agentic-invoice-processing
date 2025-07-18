@@ -369,21 +369,6 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
     }
   };
 
-  // Get status indicator
-  const getStatusIndicator = () => {
-    switch (agentStatus) {
-      case 'listening':
-        return { color: 'bg-green-400', pulse: true };
-      case 'thinking':
-        return { color: 'bg-yellow-400', pulse: true };
-      case 'speaking':
-        return { color: 'bg-blue-400', pulse: true };
-      default:
-        return { color: 'bg-gray-400', pulse: false };
-    }
-  };
-
-  const statusIndicator = getStatusIndicator();
 
   return (
     <div className="fixed top-20 right-8 z-50">
@@ -535,13 +520,13 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         
         .hover-particle {
           position: absolute;
-          width: 3px;
-          height: 3px;
+          width: 4px;
+          height: 4px;
           background: var(--color-hover);
           border-radius: 50%;
           pointer-events: none;
           will-change: transform, opacity;
-          filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
+          filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.8)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.3));
         }
         
         @keyframes hoverParticleBurst {
@@ -556,7 +541,7 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         }
         
         .hover-particle-burst {
-          animation: hoverParticleBurst 0.8s ease-out forwards;
+          animation: hoverParticleBurst 1.2s ease-out forwards;
         }
         
         @keyframes hoverGlow {
@@ -614,14 +599,6 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                     {agentStatus === 'thinking' && <Zap className="w-4 h-4 text-white" />}
                     {agentStatus === 'speaking' && <Radio className="w-4 h-4 text-white" />}
                   </div>
-                  {isActive && (
-                    <div 
-                      className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${statusIndicator.color}`}
-                      style={{
-                        animation: statusIndicator.pulse ? 'slowPulse 3s ease-in-out infinite' : 'none'
-                      }}
-                    />
-                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Cara</h3>
@@ -906,6 +883,20 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                       '--ty': '50px',
                       animationDelay: '0.5s'
                     } as React.CSSProperties} />
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '35px', 
+                      '--ty': '0px',
+                      animationDelay: '0.6s'
+                    } as React.CSSProperties} />
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '-35px', 
+                      '--ty': '0px',
+                      animationDelay: '0.7s'
+                    } as React.CSSProperties} />
                   </>
                 )}
                 
@@ -952,17 +943,6 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
               {agentStatus === 'speaking' && <Radio className="w-6 h-6 text-blue-100 icon-glow icon-pulse" />}
             </div>
             
-            {/* Status Indicator */}
-            {isActive && (
-              <div 
-                className={`absolute w-3 h-3 rounded-full ${statusIndicator.color} z-20`}
-                style={{
-                  top: '4px',
-                  right: '4px',
-                  animation: statusIndicator.pulse ? 'slowPulse 3s ease-in-out infinite' : 'none'
-                }}
-              />
-            )}
           </motion.button>
         )}
       </AnimatePresence>

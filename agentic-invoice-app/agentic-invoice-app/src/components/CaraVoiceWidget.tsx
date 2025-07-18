@@ -389,6 +389,15 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
     <div className="fixed top-20 right-8 z-50">
       {/* Custom CSS for animations */}
       <style>{`
+        :root {
+          --color-listening: rgba(34, 197, 94, 0.8);
+          --color-thinking: rgba(251, 191, 36, 0.8);
+          --color-speaking: rgba(59, 130, 246, 0.8);
+          --color-hover: rgba(168, 85, 247, 0.8);
+          --color-listening-border: rgba(34, 197, 94, 0.6);
+          --color-speaking-border: rgba(59, 130, 246, 0.6);
+        }
+        
         @keyframes slowPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.7; transform: scale(1.05); }
@@ -481,10 +490,26 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
           position: absolute;
           width: 4px;
           height: 4px;
-          background: rgba(255, 255, 255, 0.8);
           border-radius: 50%;
           pointer-events: none;
           will-change: transform, opacity;
+          filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
+        }
+        
+        .particle-listening {
+          background: var(--color-listening);
+        }
+        
+        .particle-thinking {
+          background: var(--color-thinking);
+        }
+        
+        .particle-speaking {
+          background: var(--color-speaking);
+        }
+        
+        .particle-hover {
+          background: var(--color-hover);
         }
         
         .particle-orbit {
@@ -494,20 +519,29 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         
         .sound-wave {
           position: absolute;
-          border: 2px solid rgba(255, 255, 255, 0.3);
           border-radius: 50%;
           animation: soundWave 2s ease-out infinite;
           will-change: transform, opacity;
+          filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.2));
+        }
+        
+        .sound-wave-listening {
+          border: 3px solid var(--color-listening-border);
+        }
+        
+        .sound-wave-speaking {
+          border: 3px solid var(--color-speaking-border);
         }
         
         .hover-particle {
           position: absolute;
           width: 3px;
           height: 3px;
-          background: rgba(255, 255, 255, 0.9);
+          background: var(--color-hover);
           border-radius: 50%;
           pointer-events: none;
           will-change: transform, opacity;
+          filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
         }
         
         @keyframes hoverParticleBurst {
@@ -527,10 +561,10 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         
         @keyframes hoverGlow {
           0%, 100% { 
-            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4), 0 0 30px rgba(168, 85, 247, 0.2);
           }
           50% { 
-            box-shadow: 0 0 30px rgba(168, 85, 247, 0.6), 0 0 40px rgba(236, 72, 153, 0.3);
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.6), 0 0 40px rgba(236, 72, 153, 0.4), 0 0 50px rgba(168, 85, 247, 0.2);
           }
         }
         
@@ -545,6 +579,10 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         
         .icon-pulse {
           animation: slowPulse 2s ease-in-out infinite;
+        }
+        
+        .enhanced-glow {
+          filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 8px currentColor);
         }
       `}</style>
       <AnimatePresence>
@@ -798,10 +836,30 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
             {(agentStatus === 'listening' || agentStatus === 'thinking' || agentStatus === 'speaking' || isHovered) && (
               <>
                 {/* Orbital Particles */}
-                <div className="particle particle-orbit" style={{ animationDelay: '0s', top: '20%', left: '50%' }} />
-                <div className="particle particle-orbit" style={{ animationDelay: '2s', top: '50%', left: '20%' }} />
-                <div className="particle particle-orbit" style={{ animationDelay: '4s', top: '80%', left: '50%' }} />
-                <div className="particle particle-orbit" style={{ animationDelay: '6s', top: '50%', left: '80%' }} />
+                <div className={`particle particle-orbit ${
+                  agentStatus === 'listening' ? 'particle-listening' : 
+                  agentStatus === 'thinking' ? 'particle-thinking' : 
+                  agentStatus === 'speaking' ? 'particle-speaking' : 
+                  'particle-hover'
+                }`} style={{ animationDelay: '0s', top: '20%', left: '50%' }} />
+                <div className={`particle particle-orbit ${
+                  agentStatus === 'listening' ? 'particle-listening' : 
+                  agentStatus === 'thinking' ? 'particle-thinking' : 
+                  agentStatus === 'speaking' ? 'particle-speaking' : 
+                  'particle-hover'
+                }`} style={{ animationDelay: '2s', top: '50%', left: '20%' }} />
+                <div className={`particle particle-orbit ${
+                  agentStatus === 'listening' ? 'particle-listening' : 
+                  agentStatus === 'thinking' ? 'particle-thinking' : 
+                  agentStatus === 'speaking' ? 'particle-speaking' : 
+                  'particle-hover'
+                }`} style={{ animationDelay: '4s', top: '80%', left: '50%' }} />
+                <div className={`particle particle-orbit ${
+                  agentStatus === 'listening' ? 'particle-listening' : 
+                  agentStatus === 'thinking' ? 'particle-thinking' : 
+                  agentStatus === 'speaking' ? 'particle-speaking' : 
+                  'particle-hover'
+                }`} style={{ animationDelay: '6s', top: '50%', left: '80%' }} />
                 
                 {/* Hover Particles */}
                 {isHovered && (
@@ -854,21 +912,27 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                 {/* Sound waves for listening/speaking */}
                 {(agentStatus === 'listening' || agentStatus === 'speaking') && (
                   <>
-                    <div className="sound-wave" style={{ 
+                    <div className={`sound-wave ${
+                      agentStatus === 'listening' ? 'sound-wave-listening' : 'sound-wave-speaking'
+                    }`} style={{ 
                       width: '70px', 
                       height: '70px', 
                       top: '-8px', 
                       left: '-8px',
                       animationDelay: '0s'
                     }} />
-                    <div className="sound-wave" style={{ 
+                    <div className={`sound-wave ${
+                      agentStatus === 'listening' ? 'sound-wave-listening' : 'sound-wave-speaking'
+                    }`} style={{ 
                       width: '90px', 
                       height: '90px', 
                       top: '-18px', 
                       left: '-18px',
                       animationDelay: '0.5s'
                     }} />
-                    <div className="sound-wave" style={{ 
+                    <div className={`sound-wave ${
+                      agentStatus === 'listening' ? 'sound-wave-listening' : 'sound-wave-speaking'
+                    }`} style={{ 
                       width: '110px', 
                       height: '110px', 
                       top: '-28px', 

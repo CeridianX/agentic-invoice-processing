@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { MessageCircle, Mic, MicOff, X, Send, Loader } from 'lucide-react';
+import { MessageCircle, Mic, MicOff, X, Send, Loader, Radio, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '../lib/logger';
 
@@ -537,6 +537,15 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         .hover-glow {
           animation: hoverGlow 1.5s ease-in-out infinite;
         }
+        
+        .icon-glow {
+          filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+          transition: filter 0.3s ease;
+        }
+        
+        .icon-pulse {
+          animation: slowPulse 2s ease-in-out infinite;
+        }
       `}</style>
       <AnimatePresence>
         {isExpanded && (
@@ -562,7 +571,10 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                       ? 'slowPulse 3s ease-in-out infinite' 
                       : 'none'
                   }}>
-                    <MessageCircle className="w-4 h-4 text-white" />
+                    {agentStatus === 'idle' && <Mic className="w-4 h-4 text-white" />}
+                    {agentStatus === 'listening' && <Mic className="w-4 h-4 text-white" />}
+                    {agentStatus === 'thinking' && <Zap className="w-4 h-4 text-white" />}
+                    {agentStatus === 'speaking' && <Radio className="w-4 h-4 text-white" />}
                   </div>
                   {isActive && (
                     <div 
@@ -868,9 +880,12 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
               </>
             )}
             
-            {/* Main Icon */}
-            <div className="relative z-10 flex items-center justify-center">
-              <MessageCircle className="w-6 h-6" />
+            {/* Main Icon - State-based */}
+            <div className="relative z-10 flex items-center justify-center transition-all duration-300">
+              {agentStatus === 'idle' && <Mic className="w-6 h-6" />}
+              {agentStatus === 'listening' && <Mic className="w-6 h-6 text-green-100 icon-glow" />}
+              {agentStatus === 'thinking' && <Zap className="w-6 h-6 text-yellow-100 icon-glow icon-pulse" />}
+              {agentStatus === 'speaking' && <Radio className="w-6 h-6 text-blue-100 icon-glow icon-pulse" />}
             </div>
             
             {/* Status Indicator */}

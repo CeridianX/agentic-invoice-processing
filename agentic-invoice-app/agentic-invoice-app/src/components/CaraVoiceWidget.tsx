@@ -42,6 +42,7 @@ export default function CaraVoiceWidget({
   }>>([]);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [agentStatus, setAgentStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
+  const [isHovered, setIsHovered] = useState(false);
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   // ElevenLabs Conversational AI hook (matching working Jarvis approach)
@@ -386,11 +387,155 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
 
   return (
     <div className="fixed top-20 right-8 z-50">
-      {/* Custom CSS for slow pulse animation */}
+      {/* Custom CSS for animations */}
       <style>{`
         @keyframes slowPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        
+        @keyframes blobMorph {
+          0%, 100% { 
+            border-radius: 50%;
+            transform: scale(1);
+          }
+          25% { 
+            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+            transform: scale(1.05);
+          }
+          50% { 
+            border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+            transform: scale(1.02);
+          }
+          75% { 
+            border-radius: 40% 60% 60% 40% / 70% 30% 60% 40%;
+            transform: scale(1.08);
+          }
+        }
+        
+        @keyframes gentleBreath {
+          0%, 100% { 
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% { 
+            transform: scale(1.03);
+            opacity: 0.95;
+          }
+        }
+        
+        @keyframes particleOrbit {
+          0% { 
+            transform: rotate(0deg) translateX(25px) rotate(0deg);
+            opacity: 0.6;
+          }
+          50% { 
+            opacity: 1;
+          }
+          100% { 
+            transform: rotate(360deg) translateX(25px) rotate(-360deg);
+            opacity: 0.6;
+          }
+        }
+        
+        @keyframes soundWave {
+          0%, 100% { 
+            transform: scale(1);
+            opacity: 0.8;
+          }
+          50% { 
+            transform: scale(1.4);
+            opacity: 0.2;
+          }
+        }
+        
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        
+        .blob-idle {
+          animation: gentleBreath 4s ease-in-out infinite;
+          will-change: transform, opacity;
+        }
+        
+        .blob-listening {
+          animation: blobMorph 2s ease-in-out infinite;
+          will-change: transform, border-radius;
+        }
+        
+        .blob-thinking {
+          animation: blobMorph 1.5s ease-in-out infinite, gradientShift 3s ease-in-out infinite;
+          background: linear-gradient(45deg, #a855f7, #ec4899, #f59e0b, #a855f7);
+          background-size: 400% 400%;
+          will-change: transform, border-radius, background-position;
+        }
+        
+        .blob-speaking {
+          animation: blobMorph 0.8s ease-in-out infinite;
+          will-change: transform, border-radius;
+        }
+        
+        .particle {
+          position: absolute;
+          width: 4px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: 50%;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+        
+        .particle-orbit {
+          animation: particleOrbit 8s linear infinite;
+          will-change: transform, opacity;
+        }
+        
+        .sound-wave {
+          position: absolute;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          animation: soundWave 2s ease-out infinite;
+          will-change: transform, opacity;
+        }
+        
+        .hover-particle {
+          position: absolute;
+          width: 3px;
+          height: 3px;
+          background: rgba(255, 255, 255, 0.9);
+          border-radius: 50%;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+        
+        @keyframes hoverParticleBurst {
+          0% { 
+            transform: scale(0) translate(0, 0);
+            opacity: 1;
+          }
+          100% { 
+            transform: scale(1) translate(var(--tx), var(--ty));
+            opacity: 0;
+          }
+        }
+        
+        .hover-particle-burst {
+          animation: hoverParticleBurst 0.8s ease-out forwards;
+        }
+        
+        @keyframes hoverGlow {
+          0%, 100% { 
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+          }
+          50% { 
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.6), 0 0 40px rgba(236, 72, 153, 0.3);
+          }
+        }
+        
+        .hover-glow {
+          animation: hoverGlow 1.5s ease-in-out infinite;
         }
       `}</style>
       <AnimatePresence>
@@ -591,30 +736,147 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
         )}
       </AnimatePresence>
 
-      {/* Floating Action Button - Only show when bubble should be visible */}
+      {/* Floating Action Button - Dynamic Blob Animation */}
       <AnimatePresence>
         {showBubble && !isExpanded && (
           <motion.button
             onClick={activateCara}
-            className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className={`relative w-14 h-14 shadow-lg flex items-center justify-center text-white overflow-visible ${
+              isHovered ? 'hover-glow' : ''
+            }`}
             style={{
-              background: 'linear-gradient(135deg, #a855f7, #ec4899)'
+              background: agentStatus === 'thinking' ? 'transparent' : 'linear-gradient(135deg, #a855f7, #ec4899)',
+              borderRadius: '50%',
+              willChange: 'transform, background',
+              zIndex: 10
             }}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             whileHover={{ 
-              background: 'linear-gradient(135deg, #9333ea, #db2777)',
+              scale: 1.15,
+              background: agentStatus === 'thinking' ? 'transparent' : 'linear-gradient(135deg, #9333ea, #db2777)',
               transition: { duration: 0.3, ease: "easeOut" }
             }}
             whileTap={{ scale: 0.95 }}
           >
-          <div className="relative w-14 h-14 flex items-center justify-center">
-            <MessageCircle className="w-6 h-6" />
+            {/* Blob Animation Container */}
+            <div 
+              className={`absolute inset-0 w-14 h-14 ${
+                agentStatus === 'idle' ? 'blob-idle' : 
+                agentStatus === 'listening' ? 'blob-listening' : 
+                agentStatus === 'thinking' ? 'blob-thinking' : 
+                agentStatus === 'speaking' ? 'blob-speaking' : 
+                'blob-idle'
+              }`}
+              style={{
+                background: agentStatus === 'thinking' ? 
+                  'linear-gradient(45deg, #a855f7, #ec4899, #f59e0b, #a855f7)' :
+                  'linear-gradient(135deg, #a855f7, #ec4899)',
+                backgroundSize: agentStatus === 'thinking' ? '400% 400%' : '100% 100%',
+                borderRadius: '50%',
+                zIndex: 1
+              }}
+            />
+            
+            {/* Particle System */}
+            {(agentStatus === 'listening' || agentStatus === 'thinking' || agentStatus === 'speaking' || isHovered) && (
+              <>
+                {/* Orbital Particles */}
+                <div className="particle particle-orbit" style={{ animationDelay: '0s', top: '20%', left: '50%' }} />
+                <div className="particle particle-orbit" style={{ animationDelay: '2s', top: '50%', left: '20%' }} />
+                <div className="particle particle-orbit" style={{ animationDelay: '4s', top: '80%', left: '50%' }} />
+                <div className="particle particle-orbit" style={{ animationDelay: '6s', top: '50%', left: '80%' }} />
+                
+                {/* Hover Particles */}
+                {isHovered && (
+                  <>
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '40px', 
+                      '--ty': '-40px',
+                      animationDelay: '0s'
+                    } as React.CSSProperties} />
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '-40px', 
+                      '--ty': '-40px',
+                      animationDelay: '0.1s'
+                    } as React.CSSProperties} />
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '40px', 
+                      '--ty': '40px',
+                      animationDelay: '0.2s'
+                    } as React.CSSProperties} />
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '-40px', 
+                      '--ty': '40px',
+                      animationDelay: '0.3s'
+                    } as React.CSSProperties} />
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '0px', 
+                      '--ty': '-50px',
+                      animationDelay: '0.4s'
+                    } as React.CSSProperties} />
+                    <div className="hover-particle hover-particle-burst" style={{ 
+                      top: '50%', 
+                      left: '50%', 
+                      '--tx': '0px', 
+                      '--ty': '50px',
+                      animationDelay: '0.5s'
+                    } as React.CSSProperties} />
+                  </>
+                )}
+                
+                {/* Sound waves for listening/speaking */}
+                {(agentStatus === 'listening' || agentStatus === 'speaking') && (
+                  <>
+                    <div className="sound-wave" style={{ 
+                      width: '70px', 
+                      height: '70px', 
+                      top: '-8px', 
+                      left: '-8px',
+                      animationDelay: '0s'
+                    }} />
+                    <div className="sound-wave" style={{ 
+                      width: '90px', 
+                      height: '90px', 
+                      top: '-18px', 
+                      left: '-18px',
+                      animationDelay: '0.5s'
+                    }} />
+                    <div className="sound-wave" style={{ 
+                      width: '110px', 
+                      height: '110px', 
+                      top: '-28px', 
+                      left: '-28px',
+                      animationDelay: '1s'
+                    }} />
+                  </>
+                )}
+              </>
+            )}
+            
+            {/* Main Icon */}
+            <div className="relative z-10 flex items-center justify-center">
+              <MessageCircle className="w-6 h-6" />
+            </div>
+            
+            {/* Status Indicator */}
             {isActive && (
               <div 
-                className={`absolute w-3 h-3 rounded-full ${statusIndicator.color}`}
+                className={`absolute w-3 h-3 rounded-full ${statusIndicator.color} z-20`}
                 style={{
                   top: '4px',
                   right: '4px',
@@ -622,7 +884,6 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
                 }}
               />
             )}
-          </div>
           </motion.button>
         )}
       </AnimatePresence>

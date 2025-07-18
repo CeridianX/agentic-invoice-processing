@@ -394,8 +394,8 @@ Remember: You are an AI assistant focused on accounts payable excellence. Be hel
           --color-thinking: rgba(251, 191, 36, 0.8);
           --color-speaking: rgba(59, 130, 246, 0.8);
           --color-hover: rgba(168, 85, 247, 0.8);
-          --color-listening-border: rgba(34, 197, 94, 0.6);
-          --color-speaking-border: rgba(59, 130, 246, 0.6);
+          --color-listening-border: rgba(128, 128, 128, 0.15);
+          --color-speaking-border: rgba(128, 128, 128, 0.15);
         }
         
         @keyframes slowPulse {

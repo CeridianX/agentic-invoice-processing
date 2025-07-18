@@ -26,7 +26,20 @@ COPY . .
 # Generate Prisma client (must be done after copying source code to have access to schema)
 RUN cd agentic-invoice-app/server && npx prisma generate
 
-# Build frontend
+# Build frontend with environment variables
+ARG VITE_ELEVENLABS_API_KEY
+ARG VITE_ELEVENLABS_VOICE_ID
+ARG VITE_ELEVENLABS_AGENT_ID
+ARG VITE_API_BASE_URL
+ENV VITE_ELEVENLABS_API_KEY=${VITE_ELEVENLABS_API_KEY}
+ENV VITE_ELEVENLABS_VOICE_ID=${VITE_ELEVENLABS_VOICE_ID}
+ENV VITE_ELEVENLABS_AGENT_ID=${VITE_ELEVENLABS_AGENT_ID}
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# Debug: Print environment variables
+RUN echo "=== Build Environment Variables ===" && \
+    echo "VITE_API_BASE_URL: $VITE_API_BASE_URL" && \
+    echo "VITE_ELEVENLABS_AGENT_ID: $VITE_ELEVENLABS_AGENT_ID" && \
+    echo "VITE_ELEVENLABS_VOICE_ID: $VITE_ELEVENLABS_VOICE_ID"
 RUN cd agentic-invoice-app/agentic-invoice-app && npm run build
 
 # Build backend
